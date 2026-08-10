@@ -1,0 +1,10 @@
+## Interface: 120007, 120005, 120001
+## Title: Larias' Weekly Checklist: 简体中文
+## Notes: 简体中文本地化数据，适用于 Larias' Weekly Checklist 的 PTR 版本
+## Author: Larias
+## Version: 2.1.48
+## IconTexture: Interface\AddOns\LariasWeeklyChecklist_Localization\assets\icon
+
+locales\init.lua
+locales\zhCN.lua
+locales\zhCN_Data.lua

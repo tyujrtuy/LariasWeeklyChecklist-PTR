@@ -1,0 +1,65 @@
+## Interface: 120007, 120005, 120001
+## Title: Larias' Weekly Checklist
+## Notes: Weekly checklist with collapsible weeks
+## Author: Dev
+## X-Credits: Larias (checklist content and data)
+## Author: Larias
+## Version: 2.1.48
+## SavedVariables: LariasWeeklyChecklistDB
+## OptionalDeps: LariasWeeklyChecklist_Localization
+## IconTexture: Interface\AddOns\LariasWeeklyChecklist\assets\icon
+## AddonCompartmentFunc: LariasWeeklyChecklist_CompartmentClick
+## AddonCompartmentFuncOnEnter: LariasWeeklyChecklist_CompartmentOnEnter
+## AddonCompartmentFuncOnLeave: LariasWeeklyChecklist_CompartmentOnLeave
+## X-Wago-ID: mKOD5RGx
+## X-Curse-Project-ID: 1448023
+
+# Libraries
+lib\LibStub\LibStub.lua
+lib\CallbackHandler-1.0\CallbackHandler-1.0.lua
+lib\Ace3\AceAddon-3.0\AceAddon-3.0.lua
+lib\Ace3\AceEvent-3.0\AceEvent-3.0.lua
+lib\Ace3\AceDB-3.0\AceDB-3.0.lua
+lib\Ace3\AceConsole-3.0\AceConsole-3.0.lua
+lib\LibDataBroker-1.1\LibDataBroker-1.1.lua
+lib\LibDBIcon-1.0\LibDBIcon-1.0\LibDBIcon-1.0.lua
+lib\LibWindow-1.1\LibWindow-1.1\LibWindow-1.1\LibWindow-1.1.lua
+
+# Locale strings and dataset
+Locales\enUS.lua
+Locales\enUS_Data.lua
+
+# Core
+constants\LariasWeeklyChecklist_Constants.lua
+LariasWeeklyChecklist.lua
+features\services\general\LariasWeeklyChecklist_DevMetadata.lua
+features\services\general\LariasWeeklyChecklist_Database.lua
+features\services\general\LariasWeeklyChecklist_Popups.lua
+
+# Reusable UI components (must follow main file)
+components\LariasWeeklyChecklist_Buttons.lua
+components\LariasWeeklyChecklist_Checkbox.lua
+components\LariasWeeklyChecklist_Dropdown.lua
+components\LariasWeeklyChecklist_ScaleSlider.lua
+components\LariasWeeklyChecklist_Options.lua
+
+# Feature modules
+features\utils\LariasWeeklyChecklist_AddonUtils.lua
+features\utils\LariasWeeklyChecklist_IlvlUtils.lua
+features\services\comms\LariasWeeklyChecklist_Comms.lua
+features\services\general\LariasWeeklyChecklist_Settings.lua
+features\header\LariasWeeklyChecklist_GearPopup.lua
+features\header\LariasWeeklyChecklist_IlvlRef.lua
+features\header\LariasWeeklyChecklist_Header.lua
+features\body\LariasWeeklyChecklist_ListData.lua
+features\body\LariasWeeklyChecklist_GreatVault.lua
+features\body\LariasWeeklyChecklist_Currency.lua
+features\services\general\LariasWeeklyChecklist_Snapshot.lua
+features\body\LariasWeeklyChecklist_Overlay.lua
+features\services\general\LariasWeeklyChecklist_Tracking.lua
+features\body\LariasWeeklyChecklist_AltsSummary.lua
+features\warnings\LariasWeeklyChecklist_UpgradeWarning.lua
+features\warnings\LariasWeeklyChecklist_RaidBonusRollReminder.lua
+features\services\general\LariasWeeklyChecklist_CrestConvert.lua
+features\footer\LariasWeeklyChecklist_CharPicker.lua
+features\footer\LariasWeeklyChecklist_Footer.lua
