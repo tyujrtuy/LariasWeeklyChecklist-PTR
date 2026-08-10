@@ -13,7 +13,6 @@ local L = reg.strings["enUS"]
 local STRINGS = {
 	DISPLAY_NAME = "Larias' Weekly Checklist",
 	ADDON_WARNING_CONSTANTS_MISSING = "Warning: constants file missing; tracking IDs not loaded.",
-	DEV_DEPLOY_TIMESTAMP_LABEL_FMT = "Deployed %s",
 
 	-- Update popup
 	UPDATE_AVAILABLE_TEXT = "New version available",

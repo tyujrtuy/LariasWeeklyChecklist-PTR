@@ -1031,13 +1031,12 @@ function Addon:ToggleCurrencyConfigPopup(anchor)
         p:SetSize(320, CURRENCY_CONFIG_MIN_HEIGHT)
         p:SetMovable(true)
         p:SetClampedToScreen(true)
-        p:RegisterForDrag("LeftButton")
-        p:SetScript("OnDragStart", function(self_)
-            self_:StartMoving()
-        end)
-        p:SetScript("OnDragStop", function(self_)
-            self_:StopMovingOrSizing()
-        end)
+        local gdb = self:EnsurePrefs()
+        gdb.currencyConfigWin = gdb.currencyConfigWin or {}
+        p._windowConfig = gdb.currencyConfigWin
+        p._windowLib = LibStub("LibWindow-1.1")
+        p._windowLib.RegisterConfig(p, p._windowConfig)
+        p._windowLib.MakeDraggable(p)
         p._closeOnOutsideClick = false
         p._rowHeight = 26
 
@@ -1052,6 +1051,7 @@ function Addon:ToggleCurrencyConfigPopup(anchor)
         end)
         dragBar:SetScript("OnDragStop", function()
             p:StopMovingOrSizing()
+            p._windowLib.SavePosition(p)
         end)
         p._dragBar = dragBar
 
@@ -1217,7 +1217,11 @@ function Addon:ToggleCurrencyConfigPopup(anchor)
 
     if not p._shownOnce then
         p:ClearAllPoints()
-        p:SetPoint("CENTER", UIParent, "CENTER")
+        if p._windowConfig.x ~= nil and p._windowConfig.y ~= nil then
+            p._windowLib.RestorePosition(p)
+        else
+            p:SetPoint("CENTER", UIParent, "CENTER")
+        end
         p._shownOnce = true
     end
     p:Show()
@@ -1891,7 +1895,7 @@ local function RenderSnapshotIntoPanel(snap)
 end
 
 --  Main entry points 
-function Addon:UpdateTracking()
+function Addon:UpdateTracking(dirtyDomains)
     if not IsFrameShown(_G["LariasWeeklyChecklistFrame"]) then
         if self.SuspendTrackingUI then self:SuspendTrackingUI() end
         return
@@ -1925,12 +1929,17 @@ function Addon:UpdateTracking()
         return  -- Do not overwrite own snapshot when viewing an alt.
     end
 
-    -- Live render: GreatVault via module API, currency via module API.
-    local gridBlocks, _ = self:GetGVData()
-    ApplyGreatVaultGrid(gridBlocks)
-    ApplyRightColumnAsPairs()
+    -- Event-driven updates only touch the domains that can have changed. Calls
+    -- without dirty-domain metadata retain the original full-refresh behavior.
+    local refreshAll = type(dirtyDomains) ~= "table" or dirtyDomains.full == true
+    local snap = self:SaveTrackingSnapshot(db, dirtyDomains)
+    if refreshAll or dirtyDomains.vault == true then
+        ApplyGreatVaultGrid(snap and snap.leftGrid or nil)
+    end
+    if refreshAll or dirtyDomains.currency == true or dirtyDomains.gear == true then
+        ApplyRightColumnAsPairs()
+    end
     ResizeTrackingPanelToContent(self)
-    self:SaveTrackingSnapshot(db)
 end
 
 function Addon:ReleaseTrackingPanelRuntimeCaches()

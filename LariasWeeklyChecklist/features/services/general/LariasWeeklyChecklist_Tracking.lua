@@ -8,6 +8,19 @@ local trackingEventFrame
 local trackingUIParent
 local backgroundTrackingEnabled
 local scheduledUpdates = {}
+local pendingPanelDirty = {}
+local pendingBackgroundDirty = {}
+local Core = Addon.CoreLogic
+
+local function TakeDirtyDomains(current)
+    local result = current
+    if result == pendingPanelDirty then
+        pendingPanelDirty = {}
+    elseif result == pendingBackgroundDirty then
+        pendingBackgroundDirty = {}
+    end
+    return result
+end
 
 local function SafeRegisterEvent(frame, eventName)
     if not (frame and eventName) then return false end
@@ -21,9 +34,9 @@ end
 local function OnTrackingEvent(_, eventName, unit)
     if eventName == "UNIT_INVENTORY_CHANGED" and unit ~= "player" then return end
     if IsShown(trackingUIParent) and IsShown(Addon._trackingFrame) then
-        Addon:RequestTrackingUpdate()
+        Addon:RequestTrackingUpdate(eventName)
     else
-        Addon:RequestBackgroundSnapshotUpdate()
+        Addon:RequestBackgroundSnapshotUpdate(eventName)
     end
 end
 
@@ -96,10 +109,11 @@ local function ScheduleOnce(updateKey, callback)
     end
 end
 
-function Addon:RequestBackgroundSnapshotUpdate()
+function Addon:RequestBackgroundSnapshotUpdate(eventName)
     if not backgroundTrackingEnabled then return end
+    Core.MergeDirtyDomains(pendingBackgroundDirty, eventName)
     ScheduleOnce("background", function(addon)
-        addon:UpdateSnapshotBackground()
+        addon:UpdateSnapshotBackground(TakeDirtyDomains(pendingBackgroundDirty))
     end)
 end
 
@@ -114,32 +128,34 @@ function Addon:StartBackgroundTracking()
     end
 end
 
-function Addon:SaveTrackingSnapshot(db)
+function Addon:SaveTrackingSnapshot(db, dirtyDomains)
     if not db then return nil end
     local snap = db.trackingSnapshot
     if type(snap) ~= "table" then
         snap = {}
         db.trackingSnapshot = snap
     end
-    self:BuildTrackingSnapshot(snap)
+    self:BuildTrackingSnapshot(snap, dirtyDomains)
     snap.updatedAt = time()
     if self.MarkAltsSummaryDirty then self:MarkAltsSummaryDirty(false) end
     return snap
 end
 
-function Addon:UpdateSnapshotBackground()
+function Addon:UpdateSnapshotBackground(dirtyDomains)
     -- EnsureDB normally follows the selected alt; background capture always
     -- belongs to the character currently logged in.
     local viewedCharacter = self._viewingChar
     self._viewingChar = nil
     local db = self:EnsureDB()
     self._viewingChar = viewedCharacter
-    self:SaveTrackingSnapshot(db)
+    self:SaveTrackingSnapshot(db, dirtyDomains)
 end
 
-function Addon:RequestTrackingUpdate()
+function Addon:RequestTrackingUpdate(eventName)
+    Core.MergeDirtyDomains(pendingPanelDirty, eventName)
     ScheduleOnce("panel", function(addon)
+        local dirtyDomains = TakeDirtyDomains(pendingPanelDirty)
         if not (IsShown(trackingUIParent) and IsShown(addon._trackingFrame)) then return end
-        if addon.UpdateTracking then addon:UpdateTracking() end
+        if addon.UpdateTracking then addon:UpdateTracking(dirtyDomains) end
     end)
 end

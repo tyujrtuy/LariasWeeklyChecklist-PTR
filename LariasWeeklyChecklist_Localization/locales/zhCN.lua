@@ -19,7 +19,6 @@ local L = reg.strings[LOCALE]
 local STRINGS = {
 	DISPLAY_NAME = "Larias 的每周清单",
 	ADDON_WARNING_CONSTANTS_MISSING = "警告：缺少常量文件，追踪ID未加载。",
-	DEV_DEPLOY_TIMESTAMP_LABEL_FMT = "部署于 %s",
 
 	-- Update popup
 	UPDATE_AVAILABLE_TEXT = "发现新版本",

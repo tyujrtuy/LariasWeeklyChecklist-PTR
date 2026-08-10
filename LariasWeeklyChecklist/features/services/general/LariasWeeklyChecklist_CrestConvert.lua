@@ -43,6 +43,7 @@ local _allBtn         -- "Convert All" button
 local _disableBtn     -- "Disable" button at the bottom of the panel
 local _actions = {}
 local _pendingConvert -- callback stored while the confirm dialog is open
+local _conversionRunToken = 0
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,12 @@ local function BuildItemIndex(values)
         end
     end
     return count > 0 and byItemID or nil
+end
+
+local function IsPlayerInInstance()
+    if not IsInInstance then return false end
+    local inInstance = IsInInstance()
+    return inInstance and true or false
 end
 
 local function GetNpcIDFromGUID(guid)
@@ -160,6 +167,36 @@ local function HasAnyActions()
     return #_actions > 0
 end
 
+local function BuildCascadingConversionPlan()
+    return Addon.CoreLogic.BuildCascadingConversionPlan(GetCurrentActions(), GetCrestHeld)
+end
+
+local function ExecuteConversionPlan(plan, runToken)
+    Addon.CoreLogic.RunConversionPlan(plan, {
+        isCancelled = function()
+            return runToken ~= _conversionRunToken
+        end,
+        isActionValid = function(action)
+            local currentLink = GetMerchantItemLink and GetMerchantItemLink(action.merchantIdx)
+            local currentItemID = currentLink and tonumber(currentLink:match("item:(%d+)")) or nil
+            return not action.itemID or currentItemID == action.itemID
+        end,
+        getAvailableCount = GetMaxConv,
+        buy = function(action, count)
+            if BuyMerchantItem then BuyMerchantItem(action.merchantIdx, count) end
+        end,
+        schedule = function(delay, callback)
+            if C_Timer and C_Timer.After then C_Timer.After(delay, callback) else callback() end
+        end,
+        onComplete = function()
+            if Addon.RefreshCrestConvertPanel then Addon:RefreshCrestConvertPanel() end
+        end,
+        onAbort = function()
+            if Addon.RefreshCrestConvertPanel then Addon:RefreshCrestConvertPanel() end
+        end,
+    })
+end
+
 -- Scans the open merchant and groups conversion rows by direction.
 local function ScanMerchant()
     ClearActions()
@@ -178,6 +215,7 @@ local function ScanMerchant()
                 if (not costTier) or costTier < outputTier then
                     AddAction({
                         merchantIdx = i,
+                        itemID      = itemID,
                         sourceTier  = costTier or itemTierIdx,
                         destTier    = outputTier,
                         costPer     = costPer,
@@ -236,9 +274,6 @@ local function BuildPanel()
     holder:SetClampedToScreen(true)
     holder:EnableMouse(true)
     holder:SetMovable(true)
-    holder:RegisterForDrag("LeftButton")
-    holder:SetScript("OnDragStart", holder.StartMoving)
-    holder:SetScript("OnDragStop",  holder.StopMovingOrSizing)
     holder:Hide()
 
     Addon:ApplyWarningPanelTheme(holder, {
@@ -253,6 +288,15 @@ local function BuildPanel()
         holder:SetPoint("LEFT", MerchantFrame, "RIGHT", 5, 0)
     else
         holder:SetPoint("CENTER", UIParent, "CENTER", 350, 0)
+    end
+
+    local gdb = Addon:EnsurePrefs()
+    gdb.crestConvertWin = gdb.crestConvertWin or {}
+    local LW = LibStub("LibWindow-1.1")
+    LW.RegisterConfig(holder, gdb.crestConvertWin)
+    LW.MakeDraggable(holder)
+    if gdb.crestConvertWin.x ~= nil and gdb.crestConvertWin.y ~= nil then
+        LW.RestorePosition(holder)
     end
 
     -- Create one button per visible conversion row; shown/positioned in Refresh.
@@ -313,20 +357,18 @@ local function BuildPanel()
     allBtn:SetText(L.CREST_CONVERT_ALL_BTN or "Convert All")
     allBtn:Hide()
     allBtn:SetScript("OnClick", function()
-        local plan    = {}
+        local plan    = BuildCascadingConversionPlan()
         local lines   = {}
-        for _, action in ipairs(GetCurrentActions()) do
-            local maxConv = GetMaxConv(action)
-            if maxConv > 0 then
-                table.insert(plan, { merchantIdx = action.merchantIdx, count = maxConv })
-                local srcName   = GetCrestShort(action.sourceTier)
-                local dstName   = GetCrestShort(action.destTier)
-                local totalCost = maxConv * action.costPer
-                local totalGain = maxConv * action.gainPer
-                table.insert(lines, string.format(
-                    "%s -> %s  (%d -> %d)", srcName, dstName, totalCost, totalGain
-                ))
-            end
+        for _, step in ipairs(plan) do
+            local action = step.action
+            local maxConv = step.count
+            local srcName   = GetCrestShort(action.sourceTier)
+            local dstName   = GetCrestShort(action.destTier)
+            local totalCost = maxConv * action.costPer
+            local totalGain = maxConv * action.gainPer
+            table.insert(lines, string.format(
+                "%s -> %s  (%d -> %d)", srcName, dstName, totalCost, totalGain
+            ))
         end
         if #plan == 0 then return end
         local hdrTxt  = L.CREST_CONVERT_WARN_ALL_HDR
@@ -334,14 +376,8 @@ local function BuildPanel()
         local footer  = "\n\n" .. (L.CREST_CONVERT_WARN_FOOTER or "These actions cannot be undone.")
         local warnText = hdrTxt .. table.concat(lines, "\n") .. footer
         ShowConfirm(warnText, function()
-            for _, c in ipairs(plan) do
-                if BuyMerchantItem then
-                    BuyMerchantItem(c.merchantIdx, c.count)
-                end
-            end
-            C_Timer.After(0.4, function()
-                Addon:RefreshCrestConvertPanel()
-            end)
+            _conversionRunToken = _conversionRunToken + 1
+            ExecuteConversionPlan(plan, _conversionRunToken)
         end)
     end)
     _allBtn = allBtn
@@ -361,6 +397,7 @@ local function BuildPanel()
     _disableBtn = disableBtn
 
     _panel = holder
+    Addon._crestConvertPanel = holder
 end
 
 -- ── Public refresh ────────────────────────────────────────────────────────────
@@ -440,6 +477,7 @@ evFrame:RegisterEvent("MERCHANT_SHOW")
 evFrame:RegisterEvent("MERCHANT_CLOSED")
 evFrame:SetScript("OnEvent", function(_, event)
     if event == "MERCHANT_SHOW" then
+        _conversionRunToken = _conversionRunToken + 1
         ClearActions()
         if _panel then _panel:Hide() end
         if _pendingConvert then
@@ -451,6 +489,7 @@ evFrame:SetScript("OnEvent", function(_, event)
         C_Timer.After(0.05, function()
             local prefs = Addon.EnsurePrefs and Addon:EnsurePrefs()
             if prefs and prefs.crestConvertDisabled then return end
+            if IsPlayerInInstance() then return end
             if not IsCrestExchangeMerchant() then return end
 
             ScanMerchant()
@@ -463,6 +502,7 @@ evFrame:SetScript("OnEvent", function(_, event)
         end)
 
     elseif event == "MERCHANT_CLOSED" then
+        _conversionRunToken = _conversionRunToken + 1
         ClearActions()
         if _panel then _panel:Hide() end
         if _pendingConvert then

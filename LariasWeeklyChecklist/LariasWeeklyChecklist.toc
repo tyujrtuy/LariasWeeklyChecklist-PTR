@@ -1,10 +1,10 @@
 ## Interface: 120007, 120005, 120001
-## Title: Larias' Weekly Checklist
+## Title: Larias' Weekly Checklist (ALPHA)
 ## Notes: Weekly checklist with collapsible weeks
 ## Author: Dev
 ## X-Credits: Larias (checklist content and data)
 ## Author: Larias
-## Version: 2.1.48
+## Version: 2.1.49.1-alpha
 ## SavedVariables: LariasWeeklyChecklistDB
 ## OptionalDeps: LariasWeeklyChecklist_Localization
 ## IconTexture: Interface\AddOns\LariasWeeklyChecklist\assets\icon
@@ -32,7 +32,7 @@ Locales\enUS_Data.lua
 # Core
 constants\LariasWeeklyChecklist_Constants.lua
 LariasWeeklyChecklist.lua
-features\services\general\LariasWeeklyChecklist_DevMetadata.lua
+features\services\general\LariasWeeklyChecklist_CoreLogic.lua
 features\services\general\LariasWeeklyChecklist_Database.lua
 features\services\general\LariasWeeklyChecklist_Popups.lua
 

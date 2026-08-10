@@ -269,7 +269,8 @@ function Addon:InitCharPickerUI(frame, styleFunc)
         else
             local myName = (UnitName and UnitName("player")) or (L.CHAR_PICKER_BUTTON or "Swap Profile")
             btn:SetText(myName .. " " .. arrowTex)
-            local _, myClassToken = UnitClass and UnitClass("player")
+            local myClassToken
+            if UnitClass then _, myClassToken = UnitClass("player") end
             local myCC = myClassToken and RAID_CLASS_COLORS and RAID_CLASS_COLORS[myClassToken]
             if myCC and tr and tr.SetTextColor then
                 tr:SetTextColor(myCC.r, myCC.g, myCC.b, 1)

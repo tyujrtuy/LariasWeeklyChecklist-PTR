@@ -116,7 +116,6 @@ end
 -- correspond to a section or item in the current dataset. Runs once per session.
 function Addon:PruneObsoleteSavedState()
     if self._svPrunedThisSession then return end
-    self._svPrunedThisSession = true
 
     local db = self:EnsureDB()
     if type(db) ~= "table" then return end
@@ -126,28 +125,11 @@ function Addon:PruneObsoleteSavedState()
 
     if type(self.GetListData) ~= "function" then return end
     local data = self:GetListData()
-    if type(data) ~= "table" then return end
-
-    local validSections = {}
-    local validItemKeys = {}
-
-    local function MakeKey(sectionId, itemId)
-        return tostring(sectionId) .. ":" .. tostring(itemId)
-    end
-
-    for _, section in ipairs(data) do
-        if type(section) == "table" and type(section.id) == "string" then
-            validSections[section.id] = true
-            local items = section.items
-            if type(items) == "table" then
-                for _, item in ipairs(items) do
-                    if type(item) == "table" and type(item.id) == "string" then
-                        validItemKeys[MakeKey(section.id, item.id)] = true
-                    end
-                end
-            end
-        end
-    end
+    -- Missing or partially loaded locale data must never authorize deletion of
+    -- SavedVariables. A later call can retry once a real dataset is available.
+    local validSections, validItemKeys = Addon.CoreLogic.BuildValidChecklistKeys(data)
+    if not validSections then return end
+    self._svPrunedThisSession = true
 
     -- Backfill: seed sectionCompleted for sections that were fully checked in
     -- db.checked, so the sticky flag works after upgrades.  Re-runs whenever

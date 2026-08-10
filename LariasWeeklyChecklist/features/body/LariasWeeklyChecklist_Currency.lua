@@ -1268,7 +1268,10 @@ function Addon:GetCurrencyPanelRows()
             local combinedHeld = (combinedItemID > 0 and GetItemCount and GetItemCount(combinedItemID)) or 0
             local needCount    = GetWeaponUpgradeNeedCount()
             local total        = combinedHeld + shardHeld / shardsPerCombined
-            local iName, _, iQuality, _, _, _, _, _, _, iTex = (combinedItemID > 0 and GetItemInfo and GetItemInfo(combinedItemID)) or nil
+            local iName, iQuality, iTex
+            if combinedItemID > 0 and GetItemInfo then
+                iName, _, iQuality, _, _, _, _, _, _, iTex = GetItemInfo(combinedItemID)
+            end
             if not iTex and C_Item and C_Item.GetItemIconByID then
                 iTex = combinedItemID > 0 and C_Item.GetItemIconByID(combinedItemID) or nil
             end
@@ -1603,7 +1606,10 @@ function Addon:RenderCurrencySnapshotRow(row)
         local combinedQty = tonumber(row.combinedQty) or 0
         local need        = tonumber(row.need)        or 0
         local total       = combinedQty + shardQty / shardsPerCombined
-        local iName, _, iQuality = (combinedItemID > 0 and GetItemInfo and GetItemInfo(combinedItemID)) or nil
+        local iName, iQuality
+        if combinedItemID > 0 and GetItemInfo then
+            iName, _, iQuality = GetItemInfo(combinedItemID)
+        end
         local lbl
         if iName then
             local qhex = GetQualityHex(GetItemDisplayQuality(combinedItemID) or iQuality, COLORS.white)

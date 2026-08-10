@@ -593,7 +593,6 @@ function Addon:BuildDevTrackingDumpText()
         "LariasWeeklyChecklist Dev Tracking Dump",
         "date=" .. tostring(date("%Y-%m-%d %H:%M:%S")),
         "version=" .. tostring(self._myVersion or ""),
-        "devDeployTimestamp=" .. tostring(self.DEV_DEPLOY_TIMESTAMP or ""),
         "currentProfileKey=" .. tostring(ownKey or ""),
         "currentMPlusSeason=" .. tostring(currentMPlusSeason),
         "currentMPlusSeasonSource=" .. tostring(currentMPlusSeasonSource),
@@ -861,12 +860,10 @@ end
 -- Lightweight right-click context menu.  items = {{text=string, onClick=fn}, ...}
 -- Re-uses a single singleton popup panel so only one menu is open at a time.
 local _rcCtxPanel
-local _rcCtxBlocker
 local _rcCtxBtns = {}
 
 local function HideContextMenu()
     if _rcCtxPanel then _rcCtxPanel:Hide() end
-    if _rcCtxBlocker then _rcCtxBlocker:Hide() end
 end
 Addon.HideContextMenu = HideContextMenu
 
@@ -875,9 +872,6 @@ function Addon:ShowContextMenu(anchor, items)
     if not _rcCtxPanel then
         _rcCtxPanel = Addon.Controls.NewPopupPanel("DIALOG", 0.10)
         _rcCtxPanel:SetWidth(180)
-        _rcCtxPanel:HookScript("OnHide", function()
-            if _rcCtxBlocker then _rcCtxBlocker:Hide() end
-        end)
     end
     local anchorStrata = anchor and anchor.GetFrameStrata and anchor:GetFrameStrata() or "DIALOG"
     local anchorLevel = anchor and anchor.GetFrameLevel and anchor:GetFrameLevel() or 1
@@ -947,9 +941,15 @@ function Addon:PerformFullReset()
     if gdb then
         gdb.mainFramePos  = nil
         gdb.mainFrameSize = nil
+        gdb.ilvlRefPos    = nil
+        gdb.ilvlRefSize   = nil
         gdb.uiScalePct    = 100
         gdb.uiOpacityPct  = 65
         if gdb.themeColors then wipe(gdb.themeColors) end
+        if gdb.mainFrameWin then wipe(gdb.mainFrameWin) end
+        if gdb.altSummaryWin then wipe(gdb.altSummaryWin) end
+        if gdb.currencyConfigWin then wipe(gdb.currencyConfigWin) end
+        if gdb.crestConvertWin then wipe(gdb.crestConvertWin) end
     end
     if self.ApplyThemeColors then self:ApplyThemeColors() end
     if self.ApplyUIScale     then self:ApplyUIScale()     end
@@ -959,7 +959,38 @@ function Addon:PerformFullReset()
         mf:ClearAllPoints()
         mf:SetPoint("CENTER")
         mf:SetSize(self.UI.frameW, self.UI.frameH)
+        local LW = LibStub("LibWindow-1.1", true)
+        if LW then LW.SavePosition(mf) end
         if self.ApplyScrollLayout then self:ApplyScrollLayout() end
+    end
+    local asf = self._altsSummaryFrame
+    if asf then
+        asf._wasMoved = nil
+        asf:ClearAllPoints()
+        asf:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
+    end
+    local irf = self._ilvlRefWindow
+    if irf then
+        irf:ClearAllPoints()
+        if mf then
+            irf:SetPoint("TOPLEFT", mf, "TOPRIGHT", 4, 0)
+        else
+            irf:SetPoint("CENTER", UIParent, "CENTER", 260, 0)
+        end
+    end
+    local ccf = self._currencyConfigPopup
+    if ccf then
+        ccf:ClearAllPoints()
+        ccf:SetPoint("CENTER", UIParent, "CENTER")
+    end
+    local ccp = self._crestConvertPanel
+    if ccp then
+        ccp:ClearAllPoints()
+        if MerchantFrame then
+            ccp:SetPoint("LEFT", MerchantFrame, "RIGHT", 5, 0)
+        else
+            ccp:SetPoint("CENTER", UIParent, "CENTER", 350, 0)
+        end
     end
     if self.LayoutHeaderButtons then self:LayoutHeaderButtons() end
     if self.SyncGearPopup       then self:SyncGearPopup()       end

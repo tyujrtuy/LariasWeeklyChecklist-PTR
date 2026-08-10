@@ -14,11 +14,21 @@ Addon.COMM_PREFIX = Addon.COMM_PREFIX or "LWMC"
 
 local BROADCAST_THROTTLE_SECONDS = 30
 local REPLY_THROTTLE_SECONDS = 5
+local SENDER_THROTTLE_SECONDS = 2
+local OBSERVATION_TTL_SECONDS = 14 * 24 * 60 * 60
+local MAX_MESSAGE_LENGTH = 128
+local MAX_VERSION_LENGTH = 32
+local MAX_SHEET_VERSION_LENGTH = 64
+
+Addon.COMM_OBSERVATION_TTL_SECONDS = OBSERVATION_TTL_SECONDS
 
 local broadcastTimerActive = false
 local replyTimerActive = false
 local queryTimerActive = false
 local commFrame
+local senderLastMessageAt = {}
+local senderThrottleCount = 0
+local Core = Addon.CoreLogic
 
 local function RunLater(delay, callback)
     if C_Timer and C_Timer.After then
@@ -28,71 +38,21 @@ local function RunLater(delay, callback)
     end
 end
 
--- Trim helper for metadata/version parsing.
-local function Trim(s)
-    return tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")
-end
-
 -- Version handling notes:
 -- - We only care about prompting updates for "live" releases.
 -- - Remote prerelease versions (e.g. "1.0.18-alpha") are ignored for prompting.
 -- - Numeric comparison is required (string compare breaks: "1.0.10" vs "1.0.2").
-local function NormalizeVersionString(v)
-    v = Trim(v)
-    -- Drop any trailing metadata after whitespace (e.g., "1.0.0 (foo)").
-    v = v:gsub("%s.*$", "")
-    -- Common tag prefix.
-    if v:match("^[vV]%d") then
-        v = v:sub(2)
-    end
-    return v
+local IsLiveVersion = Core.IsLiveVersion
+local CompareVersions = Core.CompareVersions
+
+local function GetNow()
+    return tonumber(time and time()) or 0
 end
 
-local function StripBuildAndPrerelease(v)
-    v = NormalizeVersionString(v)
-    if v == "" then return "" end
-    -- Ignore build metadata and prerelease suffixes for ordering.
-    v = v:match("^([^+]+)") or v
-    local main = v:match("^(.-)%-") or v
-    return main
-end
-
-local function IsLiveVersion(v)
-    v = NormalizeVersionString(v)
-    if v == "" then return false end
-    v = v:match("^([^+]+)") or v
-    return not v:find("%-")
-end
-
-local function ParseVersionNumbers(v)
-    local main = StripBuildAndPrerelease(v)
-    if main == "" then return nil end
-    local nums = {}
-    for n in tostring(main):gmatch("%d+") do
-        nums[#nums + 1] = tonumber(n) or 0
-    end
-    if #nums == 0 then return nil end
-    return nums
-end
-
-local function CompareVersions(versionA, versionB)
-    -- Compare only numeric components of the *live* versions.
-    -- (Prereleases are filtered out earlier, and build metadata is ignored.)
-    local aNums = ParseVersionNumbers(versionA)
-    local bNums = ParseVersionNumbers(versionB)
-    if not aNums and not bNums then return 0 end
-    if not aNums then return -1 end
-    if not bNums then return 1 end
-
-    local maxLen = (#aNums > #bNums) and #aNums or #bNums
-    for i = 1, maxLen do
-        local av = aNums[i] or 0
-        local bv = bNums[i] or 0
-        if av ~= bv then
-            return (av > bv) and 1 or -1
-        end
-    end
-    return 0
+local function IsSafeSheetVersion(value)
+    return type(value) == "string"
+        and #value <= MAX_SHEET_VERSION_LENGTH
+        and not value:find("[%c]")
 end
 
 local function SerializeCommMessage(tbl)
@@ -100,20 +60,23 @@ local function SerializeCommMessage(tbl)
     if tbl.t == "Q" then
         return "Q"
     elseif tbl.t == "V" then
-        return table.concat({ "V", tostring(tbl.v or ""), tostring(tbl.sv or "") }, "\t")
+        local version = Core.ParseLiveVersion(tbl.v, MAX_VERSION_LENGTH)
+        if not version then return nil end
+        local sheetVersion = tostring(tbl.sv or "")
+        if not IsSafeSheetVersion(sheetVersion) then sheetVersion = "" end
+        return table.concat({ "V", version, sheetVersion }, "\t")
     end
     return nil
 end
 
 local function DeserializeCommMessage(message)
-    if type(message) ~= "string" then return nil end
+    if type(message) ~= "string" or #message > MAX_MESSAGE_LENGTH then return nil end
     if message == "Q" then return { t = "Q" } end
 
-    local msgType, version, sheetVersion = strsplit("\t", message)
-    if msgType == "V" then
-        return { t = "V", v = version or "", sv = sheetVersion or "" }
-    end
-    return nil
+    local version, sheetVersion = message:match("^V\t([^\t]+)\t([^\t]*)$")
+    version = Core.ParseLiveVersion(version, MAX_VERSION_LENGTH)
+    if not version or not IsSafeSheetVersion(sheetVersion) then return nil end
+    return { t = "V", v = version, sv = sheetVersion }
 end
 
 local function SafeSendCommMessage(msg, channel)
@@ -153,12 +116,57 @@ local function GetMySheetVersion()
     return (reg and type(reg.sheet_version) == "string" and reg.sheet_version) or ""
 end
 
--- Extract the last integer found in a freeform sheet-version string.
+-- Prefer an explicit "Week N" marker, then fall back to the first integer.
 -- e.g. "Week 5 - Apr 14" → 5,  "Pre-Season Week 2" → 2
 local function SheetVersionToNum(s)
-    local n = 0
-    for m in tostring(s or ""):gmatch("%d+") do n = tonumber(m) or n end
-    return n
+    local value = tostring(s or "")
+    local week = value:lower():match("week%s*(%d+)")
+    if week then return tonumber(week) or 0 end
+    return tonumber(value:match("%d+")) or 0
+end
+
+local function IsObservationExpired(observedAt)
+    local timestamp = tonumber(observedAt) or 0
+    local now = GetNow()
+    return timestamp <= 0 or (now >= timestamp and now - timestamp > OBSERVATION_TTL_SECONDS)
+end
+
+local function ClearVersionObservation(database)
+    database._newestSeenRemoteVersion = ""
+    database._newestSeenRemoteSender = ""
+    database._newestSeenRemoteVersionAt = nil
+end
+
+local function ClearSheetObservation(database)
+    database._newestSeenRemoteSheetVersion = ""
+    database._newestSeenRemoteSheetVersionAt = nil
+end
+
+local function IsSenderThrottled(sender)
+    if type(sender) ~= "string" or sender == "" then return false end
+    local key = sender:lower()
+    local now = GetNow()
+    local previous = tonumber(senderLastMessageAt[key])
+    if previous and now >= previous and now - previous < SENDER_THROTTLE_SECONDS then
+        return true
+    end
+    if not previous then
+        senderThrottleCount = senderThrottleCount + 1
+        if senderThrottleCount > 200 then
+            senderLastMessageAt = {}
+            senderThrottleCount = 1
+        end
+    end
+    senderLastMessageAt[key] = now
+    return false
+end
+
+local function IsSelfSender(sender)
+    if type(sender) ~= "string" or sender == "" or not UnitName then return false end
+    local me = UnitName("player")
+    if not me or me == "" then return false end
+    local senderName = Ambiguate and Ambiguate(sender, "none") or sender
+    return senderName == me
 end
 
 local function IsStaleSheetVersionAfterReset(mySheetVersion, remoteSheetVersion)
@@ -179,8 +187,12 @@ function Addon:ShouldShowSheetUpdateNotice()
     if myVer == "" or not IsLiveVersion(myVer) then return false end
     local newestSV = tostring(database._newestSeenRemoteSheetVersion or "")
     if newestSV == "" then return false end
+    if IsObservationExpired(database._newestSeenRemoteSheetVersionAt) then
+        ClearSheetObservation(database)
+        return false
+    end
     if IsStaleSheetVersionAfterReset(GetMySheetVersion(), newestSV) then
-        database._newestSeenRemoteSheetVersion = ""
+        ClearSheetObservation(database)
         return false
     end
     return SheetVersionToNum(newestSV) > SheetVersionToNum(GetMySheetVersion())
@@ -194,6 +206,10 @@ function Addon:ShouldShowUpdateNotice()
     if myVersion == "" or not IsLiveVersion(myVersion) then return false end
     local newestSeenVersion = tostring(database._newestSeenRemoteVersion or "")
     if newestSeenVersion == "" or myVersion == "" then return false end
+    if IsObservationExpired(database._newestSeenRemoteVersionAt) then
+        ClearVersionObservation(database)
+        return false
+    end
     if CompareVersions(newestSeenVersion, myVersion) <= 0 then return false end
     return true
 end
@@ -262,6 +278,8 @@ function Addon:OnAddonMessage(prefix, message, sender)
         return
     end
 
+    if IsSelfSender(sender) or IsSenderThrottled(sender) then return end
+
     if decoded.t == "Q" then
         -- Query received: reply with version (throttled; delay jitter to avoid bursts).
         if replyTimerActive then
@@ -282,30 +300,10 @@ function Addon:OnAddonMessage(prefix, message, sender)
         return
     end
 
-    local remoteVersion = NormalizeVersionString(decoded.v)
-    if remoteVersion == "" then return end
-
-    -- Only consider live (non-prerelease) remote versions for update prompting.
-    if not IsLiveVersion(remoteVersion) then
-        return
-    end
+    local remoteVersion = decoded.v
 
     local myVersion = self:GetMyVersion()
     if myVersion == "" then return end
-
-    if sender and sender ~= "" and UnitName then
-        -- Ignore our own messages ("player" name can be realm-qualified).
-        local me = UnitName("player")
-        if me and me ~= "" then
-            local senderName = sender
-            if Ambiguate then
-                senderName = Ambiguate(sender, "none")
-            end
-            if senderName == me then
-                return
-            end
-        end
-    end
 
     if CompareVersions(remoteVersion, myVersion) > 0 then
         local database = self:EnsureDB()
@@ -313,8 +311,11 @@ function Addon:OnAddonMessage(prefix, message, sender)
         if newestSeenVersion == "" or CompareVersions(remoteVersion, newestSeenVersion) > 0 then
             database._newestSeenRemoteVersion = remoteVersion
             database._newestSeenRemoteSender = tostring(sender or "")
+            database._newestSeenRemoteVersionAt = GetNow()
             -- Immediately refresh the status banner so the update notice appears.
             if Addon.UpdateStatusBanner then Addon:UpdateStatusBanner() end
+        elseif remoteVersion == newestSeenVersion then
+            database._newestSeenRemoteVersionAt = GetNow()
         end
     end
 
@@ -328,7 +329,10 @@ function Addon:OnAddonMessage(prefix, message, sender)
             local storedSV = tostring(database._newestSeenRemoteSheetVersion or "")
             if storedSV == "" or SheetVersionToNum(remoteSV) > SheetVersionToNum(storedSV) then
                 database._newestSeenRemoteSheetVersion = remoteSV
+                database._newestSeenRemoteSheetVersionAt = GetNow()
                 if Addon.UpdateStatusBanner then Addon:UpdateStatusBanner() end
+            elseif SheetVersionToNum(remoteSV) == SheetVersionToNum(storedSV) then
+                database._newestSeenRemoteSheetVersionAt = GetNow()
             end
         end
     end
@@ -351,16 +355,17 @@ function Addon:CommsOnEnable()
     local myVer    = self._myVersion
     if myVer ~= "" and IsLiveVersion(myVer) then
         local stored = tostring(database._newestSeenRemoteVersion or "")
-        if stored ~= "" and CompareVersions(stored, myVer) <= 0 then
-            database._newestSeenRemoteVersion = ""
-            database._newestSeenRemoteSender  = ""
+        if stored ~= "" and (CompareVersions(stored, myVer) <= 0
+                or IsObservationExpired(database._newestSeenRemoteVersionAt)) then
+            ClearVersionObservation(database)
         end
     end
 
     local mySheetVersion = GetMySheetVersion()
     local storedSheetVersion = tostring(database._newestSeenRemoteSheetVersion or "")
-    if storedSheetVersion ~= "" and IsStaleSheetVersionAfterReset(mySheetVersion, storedSheetVersion) then
-        database._newestSeenRemoteSheetVersion = ""
+    if storedSheetVersion ~= "" and (IsStaleSheetVersionAfterReset(mySheetVersion, storedSheetVersion)
+            or IsObservationExpired(database._newestSeenRemoteSheetVersionAt)) then
+        ClearSheetObservation(database)
     end
 
     if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then

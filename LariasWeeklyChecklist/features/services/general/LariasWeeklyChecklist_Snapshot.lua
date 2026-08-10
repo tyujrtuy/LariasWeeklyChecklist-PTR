@@ -181,13 +181,15 @@ function Addon:IsTrackingSnapshotCurrentSeason(snap)
     return sawCrest
 end
 
-function Addon:BuildTrackingSnapshot(snap)
+function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
     local tracking = Addon.TRACKING or {}
+    local refreshVault, refreshGear, refreshCurrency = Addon.CoreLogic.GetSnapshotRefreshPlan(dirtyDomains)
     snap.seasonKey = Addon.GetTrackingSeasonKey and Addon:GetTrackingSeasonKey() or nil
     snap.seasonName = tracking._activeSeasonName
     snap.seasonNumber = tracking._activeSeasonNumber
     snap.seasonStartsAt = tracking._activeSeasonStartsAt
 
+    if refreshVault then
     -- Left column: Great Vault via the GreatVault module API.
     local gridBlocks, gvLines = Addon:GetGVData()
 
@@ -230,7 +232,9 @@ function Addon:BuildTrackingSnapshot(snap)
         snap.keystone.level = tonumber(ksLevel) or 0
         snap.keystone.name  = ksName or ""
     end
+    end
 
+    if refreshGear then
     -- Equipment slots: full item data for the gear popup and upgrade-cost rows.
     -- tier and rank are derived from the equipped item's ilvl using IlvlUtils.
     local previousBestGearSlots = type(snap.bestGearSlots) == "table" and snap.bestGearSlots or nil
@@ -478,13 +482,14 @@ function Addon:BuildTrackingSnapshot(snap)
             bestGearSlots[sid] = nil
         end
     end
+    end
 
     -- Right-column rows can depend on the gear watermark, so save them last.
     -- Be defensive here: snapshot capture can be requested during partial init,
     -- and we never want a missing currency hook to break the whole addon.
-    if type(Addon.FillCurrencySnapshot) == "function" then
+    if refreshCurrency and type(Addon.FillCurrencySnapshot) == "function" then
         Addon:FillCurrencySnapshot(snap)
-    else
+    elseif refreshCurrency then
         snap.rightRows = snap.rightRows or {}
         for i = #snap.rightRows, 1, -1 do
             snap.rightRows[i] = nil
