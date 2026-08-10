@@ -3,3 +3,7 @@ Thumbs.db
 *.zip
 *.7z
 .release/
+automation-logs/
+automation-pending.json
+downloads/
+upstream/
