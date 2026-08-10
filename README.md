@@ -24,9 +24,9 @@ Larias' Weekly Checklist 主插件 + 简体中文配套插件。
 
 因此：
 
-- 只分享 `LariasWeeklyChecklist_Localization`，朋友在中文客户端下通常可以用中文，
-  但不会拿到上面这些主插件调整。
-- 如果想和朋友保持与你当前使用版本完全一致，请直接分享完整 release zip。zip 同时
-  包含主插件和 localization，是最省事、最不容易装错的安装方式。
+- 只安装 `LariasWeeklyChecklist_Localization`，中文客户端下通常也能显示中文，但不会
+  包含上面这些主插件调整。
+- 希望与当前 release 保持完全一致时，请直接安装完整 zip。zip 同时包含主插件和
+  localization，是最省事、最不容易装错的安装方式。
 - 不要用官方原版主插件替换本 release 中的 `LariasWeeklyChecklist`，否则会丢失上述
   已调整的弹出位置和背景透明度。
