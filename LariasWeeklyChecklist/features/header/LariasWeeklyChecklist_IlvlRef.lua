@@ -589,9 +589,9 @@ local function BuildIlvlRefWindow()
         win:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", _savedIlvlPos.x, _savedIlvlPos.y)
     else
         -- Default: snap to the right edge of the main checklist frame, same Y.
-        local mf = Addon._mainFrame
-        if mf then
-            win:SetPoint("TOPLEFT", mf, "TOPRIGHT", 4, 0)
+        local mainFrame = Addon._mainFrame or _G["LariasWeeklyChecklistFrame"]
+        if mainFrame then
+            win:SetPoint("TOPLEFT", mainFrame, "TOPRIGHT", 4, 0)
         else
             win:SetPoint("CENTER", UIParent, "CENTER", 260, 0)
         end

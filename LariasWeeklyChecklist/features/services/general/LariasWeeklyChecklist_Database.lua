@@ -39,6 +39,72 @@ local function MigrateProfileDataToGlobalChars(self)
     Addon.CoreLogic.MigrateLegacyProfile(oldProf, cdb)
 end
 
+local function BuildActiveTrackedCurrencyIDSet(self)
+    local tracking = self and self.TRACKING or {}
+    local activeIDs = {}
+
+    local function addCurrency(value)
+        local id = tonumber(value)
+        if id and id > 0 then activeIDs[id] = true end
+    end
+
+    local function addCurrencyList(values)
+        if type(values) ~= "table" then return end
+        for i = 1, #values do
+            addCurrency(values[i])
+        end
+    end
+
+    addCurrencyList(tracking.crestCurrencyIDs)
+    addCurrency(tracking.catalystCurrencyID)
+    addCurrency(tracking.sparkCurrencyID)
+    addCurrency(tracking.cofferKeysCurrencyID)
+    addCurrency(tracking.cofferKeysDisplayCurrencyID)
+
+    local bonusRollValue = tracking.bonusRollCurrencyID or tracking.bonusRollCurrencyIDs or tracking.miscCurrencyIDs
+    if type(bonusRollValue) == "table" then
+        addCurrencyList(bonusRollValue)
+    else
+        addCurrency(bonusRollValue)
+    end
+
+    return activeIDs
+end
+
+local function PruneStaleTrackedCurrencies(self, globalDb)
+    if type(globalDb) ~= "table" then return end
+
+    local activeCurrencyIDs = BuildActiveTrackedCurrencyIDSet(self)
+    if not next(activeCurrencyIDs) then return end
+
+    local config = globalDb.trackedCurrencyConfig
+    if type(config) == "table" then
+        for i = #config, 1, -1 do
+            local entry = config[i]
+            local id = type(entry) == "table" and tonumber(entry.id or entry.currencyID) or tonumber(entry)
+            local source = type(entry) == "table" and entry.source or nil
+            if id and not activeCurrencyIDs[id] and source ~= "custom" then
+                table.remove(config, i)
+            end
+        end
+    end
+
+    local chars = globalDb.chars
+    if type(chars) == "table" then
+        for _, charDb in pairs(chars) do
+            local hidden = type(charDb) == "table" and charDb.hiddenCurrencies or nil
+            if type(hidden) == "table" then
+                for idStr in pairs(hidden) do
+                    local id = tonumber(idStr)
+                    if id and not activeCurrencyIDs[id] then
+                        hidden[idStr] = nil
+                    end
+                end
+            end
+        end
+    end
+end
+
 function Addon:SetupAddonDB()
     if self.db then return end
 
@@ -90,6 +156,7 @@ function Addon:SetupAddonDB()
     -- enumeration, but all actual addon data lives in global.chars.
     self.db = LibStub("AceDB-3.0"):New(addonName .. "DB", defaults)
     MigrateProfileDataToGlobalChars(self)
+    PruneStaleTrackedCurrencies(self, self.db and self.db.global)
 
     local gdb = self.db and self.db.global
     if gdb and not gdb._raidBonusRollReminderReenabled then

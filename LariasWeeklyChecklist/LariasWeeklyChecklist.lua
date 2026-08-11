@@ -78,15 +78,13 @@ do
     --
     -- Supported shape:
     -- tracking.seasonVariants = {
-    --   { name = "Season 1", mythicPlusSeason = 1, startsAt = 0, data = { ...override keys... } },
-    --   { name = "Season 2", mythicPlusSeason = 2, startsAt = 1780790400, data = { ...override keys... } },
+    --   { name = "Season 1", startsAt = 0, data = { ...override keys... } },
+    --   { name = "Season 2", startsAt = 1780790400, data = { ...override keys... } },
     -- }
     --
     -- Selection rules:
-    -- 1) If C_MythicPlus.GetCurrentSeason() is available and at least one variant
-    --    defines mythicPlusSeason, choose the highest mythicPlusSeason <= current.
-    -- 2) Otherwise, choose by startsAt timestamp (newest startsAt <= now).
-    -- 3) If no variant is active yet, base tracking values remain unchanged.
+    -- 1) Choose by startsAt timestamp (newest startsAt <= now).
+    -- 2) If no variant is active yet, base tracking values remain unchanged.
     local function ApplySeasonVariants(tracking)
         if type(tracking) ~= "table" then return tracking end
 
@@ -94,47 +92,15 @@ do
         if type(variants) ~= "table" or #variants == 0 then return tracking end
 
         local now = tonumber(time and time()) or 0
-        local selected, selectedStart, selectedMPlusSeason = nil, nil, nil
+        local selected, selectedStart = nil, nil
 
-        local currentMPlusSeason = nil
-        local prefs = Addon and Addon.db and Addon.db.global
-        local devOverride = prefs and tonumber(prefs.devSeasonOverride)
-        if devOverride and devOverride > 0 then
-            currentMPlusSeason = devOverride
-        elseif C_MythicPlus and C_MythicPlus.GetCurrentSeason then
-            currentMPlusSeason = tonumber(C_MythicPlus.GetCurrentSeason())
-        end
-
-        local sawMPlusVariant = false
-
-        -- Primary path: in-game Mythic+ season index.
-        if currentMPlusSeason and currentMPlusSeason > 0 then
-            for i = 1, #variants do
-                local candidate = variants[i]
-                if type(candidate) == "table" then
-                    local seasonNumber = tonumber(candidate.mythicPlusSeason or candidate.seasonNumber)
-                    if seasonNumber then
-                        sawMPlusVariant = true
-                        if seasonNumber <= currentMPlusSeason and (selectedMPlusSeason == nil or seasonNumber >= selectedMPlusSeason) then
-                            selected = candidate
-                            selectedMPlusSeason = seasonNumber
-                            selectedStart = tonumber(candidate.startsAt or candidate.releaseAt or candidate.activateAt) or 0
-                        end
-                    end
-                end
-            end
-        end
-
-        -- Fallback path: timestamp gating.
-        if not selected and not sawMPlusVariant then
-            for i = 1, #variants do
-                local candidate = variants[i]
-                if type(candidate) == "table" then
-                    local start = tonumber(candidate.startsAt or candidate.releaseAt or candidate.activateAt) or 0
-                    if start <= now and (selectedStart == nil or start >= selectedStart) then
-                        selected = candidate
-                        selectedStart = start
-                    end
+        for i = 1, #variants do
+            local candidate = variants[i]
+            if type(candidate) == "table" then
+                local start = tonumber(candidate.startsAt or candidate.releaseAt or candidate.activateAt) or 0
+                if start <= now and (selectedStart == nil or start >= selectedStart) then
+                    selected = candidate
+                    selectedStart = start
                 end
             end
         end
@@ -150,7 +116,7 @@ do
 
         tracking._activeSeasonName = selected.name
         tracking._activeSeasonStartsAt = selectedStart
-        tracking._activeSeasonNumber = selectedMPlusSeason
+        tracking._activeSeasonNumber = tonumber(selected.mythicPlusSeason or selected.seasonNumber)
         return tracking
     end
 

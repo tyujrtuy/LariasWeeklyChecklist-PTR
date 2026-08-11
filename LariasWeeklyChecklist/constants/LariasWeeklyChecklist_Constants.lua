@@ -13,11 +13,11 @@ local addonName = ...
 local constantsKey = tostring(addonName or "") .. "_CONSTANTS"
 
 -- Season data: update these every new season.
--- Optional seasonVariants are auto-selected by mythicPlusSeason, then startsAt.
-local tracking = { -- https://www.wowhead.com/currencies/season-1
+-- Optional seasonVariants are auto-selected by startsAt.
+local tracking = {
     supportLinks = {
-        doc       = "https://docs.google.com/document/d/e/2PACX-1vQE61MBpAnZR342cdIpz3AujVaeeg8JYB5Ltzuua884lXKqLqtjg8OfWmEd6uuVQONZ-vUQ_jzWDY0E/pub",
-        checklist = "https://docs.google.com/spreadsheets/d/1iK2SZUcz_ljnkdTG7KW6pqfzaUDuSgnlh1HupcLrkus",
+        doc       = "https://lariasguide.com",
+        checklist = "https://lariasguide.com/checklist",
         discord   = "https://discord.gg/postnerfclarity",
     },
     -- NPCs that should show the crest conversion side panel.
@@ -30,121 +30,7 @@ local tracking = { -- https://www.wowhead.com/currencies/season-1
     -- Keep season-scoped IDs in seasonVariants only.
     seasonVariants = {
         {
-            name = "Season 1",
-            mythicPlusSeason = 17,
-            startsAt = 0,
-            data = {
-                crestCurrencyIDs = { 3383, 3341, 3343, 3345, 3347 },
-                crestConvertItemIDs = { 263977, 246751, 246752, 246753 },
-                crestAchievementIDs = { 61809, 42767, 42768, 42769, 42770 },
-                sparkCurrencyID = 3212,
-                sparkItemID = 232875,
-                sparkQuestID = 95245,
-                catalystCurrencyID = 3378,
-                cofferKeysCurrencyID = 3310,
-                cofferKeysDisplayCurrencyID = 3028,
-                bonusRollCurrencyID = 3418,
-                ilvlBase = 220,
-                ilvlTrackStep = 13,
-                ilvlRankOffsets = { 0, 4, 7, 10, 13, 17 },
-                ilvlMythExtraLevels = {},
-                crestTradeBatch = { 30, 10 },
-                crestUpgradeCostPerStep = 20,
-                crestUpgradeCostReduced = 10,
-                ilvlRefTables = {
-                    -- tracks row schema:
-                    -- { tier = <1-5>, rank = <1-7>, ilvl = <number> }
-                    -- Overlap is auto-inferred when ilvl also exists on the next tier (e.g. T1 R6 == T2 R1).
-                    tracks = {
-                        { "ILVLREF_COL_ILVL", "ILVLREF_COL_TRACK", "ILVLREF_COL_CREST_NEEDED" },
-                        { tier = 1, rank = 1, ilvl = 220 }, { tier = 1, rank = 2, ilvl = 224 },
-                        { tier = 1, rank = 3, ilvl = 227 }, { tier = 1, rank = 4, ilvl = 230 },
-                        { tier = 1, rank = 5, ilvl = 233 }, { tier = 1, rank = 6, ilvl = 237 },
-                        { tier = 2, rank = 3, ilvl = 240 }, { tier = 2, rank = 4, ilvl = 243 },
-                        { tier = 2, rank = 5, ilvl = 246 }, { tier = 2, rank = 6, ilvl = 250 },
-                        { tier = 3, rank = 3, ilvl = 253 }, { tier = 3, rank = 4, ilvl = 256 },
-                        { tier = 3, rank = 5, ilvl = 259 }, { tier = 3, rank = 6, ilvl = 263 },
-                        { tier = 4, rank = 3, ilvl = 266 }, { tier = 4, rank = 4, ilvl = 269 },
-                        { tier = 4, rank = 5, ilvl = 272 }, { tier = 4, rank = 6, ilvl = 276 },
-                        { tier = 5, rank = 3, ilvl = 279 }, { tier = 5, rank = 4, ilvl = 282 },
-                        { tier = 5, rank = 5, ilvl = 285 }, { tier = 5, rank = 6, ilvl = 289 },
-                    },
-                    -- crafted row schema: { quality, crest1Ilvl, crest2Ilvl, crest3Ilvl, crest4Ilvl, crest5Ilvl }
-                    crafted = {
-                        { "ILVLREF_COL_QUALITY", "CREST_1", "CREST_2", "CREST_3", "CREST_4", "CREST_5" },
-                        { 1, 220, 233, 246, 259, 272 },
-                        { 2, 224, 237, 250, 263, 276 },
-                        { 3, 227, 240, 253, 266, 279 },
-                        { 4, 230, 243, 256, 269, 282 },
-                        { 5, 233, 246, 259, 272, 285 },
-                    },
-                    -- dungeons row schema: { sourceLabel, endLootIlvl, greatVaultIlvl }
-                    dungeons = {
-                        { "ILVLREF_COL_SOURCE", "ILVLREF_COL_END_LOOT", "ILVLREF_COL_GREAT_VAULT" },
-                        { "ILVLREF_DUNGEON_HEROIC", 230, 243 },
-                        { "ILVLREF_DUNGEON_MYTHIC", 246, 256 },
-                        { "M2",  250, 259 },
-                        { "M3",  250, 259 },
-                        { "M4",  253, 263 },
-                        { "M5",  256, 263 },
-                        { "M6",  259, 266 },
-                        { "M7",  259, 269 },
-                        { "M8",  263, 269 },
-                        { "M9",  263, 269 },
-                        { "M10", 266, 272 },
-                        { "M11", 266, 272 },
-                        { "M12", 266, 272 },
-                    },
-                    -- raid row schema: { difficultyLabel, boss1Ilvl, boss2Ilvl, boss3Ilvl, boss4Ilvl }
-                    raid = {
-                        { "ILVLREF_COL_DIFFICULTY", "ILVLREF_COL_BOSS1", "ILVLREF_COL_BOSS2", "ILVLREF_COL_BOSS3", "ILVLREF_COL_BOSS4" },
-                        { "ILVLREF_RAID_LFR",    233, 237, 240, 243 },
-                        { "ILVLREF_RAID_NORMAL", 246, 250, 253, 256 },
-                        { "ILVLREF_RAID_HEROIC", 259, 263, 266, 269 },
-                        { "ILVLREF_RAID_MYTHIC", 272, 276, 279, 282 },
-                    },
-                    -- delves row schema: { delveTierNumber, endLootIlvl, mapDropIlvlOrDash, greatVaultIlvl }
-                    delves = {
-                        { "ILVLREF_COL_TIER", "ILVLREF_COL_END_LOOT", "ILVLREF_COL_MAP_DROP", "ILVLREF_COL_GREAT_VAULT" },
-                        { 1,  220, "-", 233 },
-                        { 2,  224, "-", 237 },
-                        { 3,  227, "-", 240 },
-                        { 4,  230, 237, 243 },
-                        { 5,  233, 243, 246 },
-                        { 6,  237, 250, 253 },
-                        { 7,  250, 256, 256 },
-                        { 8,  250, 259, 259 },
-                        { 9,  250, 259, 259 },
-                        { 10, 250, 259, 259 },
-                        { 11, 250, 259, 259 },
-                    },
-                },
-                -- questIDs = {
-                --     delversBounty = 0,
-                --     weeklyPrey = 0,
-                --     delveBoss = 0,
-                -- },
-                questItemIDs = {
-                    delversBounty = 0,
-                    weeklyPrey = 0,
-                    delveBoss = 254253,
-                },
-                weaponUpgrade = {
-                    shardItemID = 0,
-                    combinedItemID = 0,
-                    maxItemLevel = 0,
-                    shardsPerCombined = 0,
-                    slotIDs = {},
-                },
-                currencyQualityOverrides = {
-                    [3212] = 4,
-                },
-                itemQualityOverrides = {},
-            },
-        },
-        {
             name = "Season 2",
-            mythicPlusSeason = 18,
             startsAt = 1786456800,
             data = {
                 crestCurrencyIDs = { 3442, 3443, 3444, 3445, 3446 },
