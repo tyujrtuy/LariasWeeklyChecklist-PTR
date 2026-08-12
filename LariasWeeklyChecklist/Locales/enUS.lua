@@ -132,8 +132,10 @@ local STRINGS = {
 	TRACKING_CATALYST_CHARGES = "Catalyst Charges",
 	TRACKING_CHARGES_FMT = "Charges: %d",
 	TRACKING_CHARGES_XY_FMT = "Charges: %d/%d",
+	TRACKING_WEEKLY_QUEST_UNKNOWN = "Weekly Quest: Unknown",
+	TRACKING_WEEKLY_QUEST_COMPLETE = "Weekly Quest: Complete",
+	TRACKING_WEEKLY_QUEST_INCOMPLETE = "Weekly Quest: Incomplete",
 	TRACKING_STILL_EARNABLE_FMT = "Still earnable: %d",
-	TRACKING_NOT_EARNABLE_YET = "Not earnable yet",
 	TRACKING_SEASON_CAP_REACHED = "Season cap reached",
 	TRACKING_WEEKLY_CAP_REACHED = "Weekly cap reached",
 	TRACKING_MAX_CHARGES_FMT = "Max charges: %d",
@@ -152,6 +154,8 @@ local STRINGS = {
 	TRACKING_COFFER_KEYS_LABEL = "Coffer Keys",
 	TRACKING_SPARKS_FMT = "Sparks: %d",
 	TRACKING_SPARKS_XY_FMT = "Sparks: %d / %d",
+	TRACKING_QUEST_DONE_SUFFIX = "(quest done)",
+	TRACKING_QUEST_NOT_DONE_SUFFIX = "(quest not done)",
 
 	-- Locale reload popup (shown after changing language)
 	LOCALE_RELOAD_TEXT       = "Language change saved. Reload UI to apply the new language.",

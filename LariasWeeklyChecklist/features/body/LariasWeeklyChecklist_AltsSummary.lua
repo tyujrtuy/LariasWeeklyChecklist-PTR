@@ -44,40 +44,6 @@ local function GetGVName(gi)
     end
     return ""
 end
-
-Addon.CountUtf8Chars = function(text)
-    local count = 0
-    for i = 1, #text do
-        local b = text:byte(i)
-        if b and (b < 0x80 or b >= 0xC0) then
-            count = count + 1
-        end
-    end
-    return count
-end
-
-Addon.TruncateUtf8 = function(text, maxChars)
-    local count = 0
-    local last = 0
-    local i = 1
-    while i <= #text do
-        local b = text:byte(i)
-        local len = 1
-        if b and b >= 0xF0 then
-            len = 4
-        elseif b and b >= 0xE0 then
-            len = 3
-        elseif b and b >= 0xC0 then
-            len = 2
-        end
-        count = count + 1
-        if count > maxChars then break end
-        last = i + len - 1
-        i = last + 1
-    end
-    return text:sub(1, last)
-end
-
 local GV_THRESHOLDS = { {2,4,6}, {1,4,8}, {2,4,8} }
 
 -- Read from TRACKING so Overlay.lua (which captures the data) uses the same list.
@@ -1208,7 +1174,7 @@ end
 local function NewSnapData()
     return {
         catQty = 0, catCap = 0,
-        sprkQty = 0, sprkCap = 0,
+        sprkQty = 0, sprkCap = 0, sprkQD = nil,
         keysQty = 0, keysCap = 0, keysHeld = 0,
         miscQtys   = {}, miscCaps      = {},
         crestQtys  = {}, crestEarneds  = {}, crestCaps = {}, crestTradeups = {},
@@ -1219,100 +1185,39 @@ local function NewSnapData()
     }
 end
 
-local function ClampSnapshotAmountToCurrentCap(value, cap, hasCurrentCap)
-    value = tonumber(value) or 0
-    cap = tonumber(cap) or 0
-    if hasCurrentCap then
-        return math.min(value, math.max(0, cap))
-    end
-    return value
-end
-
-local function GetLiveSnapshotCap(getLiveCap, rowType, currencyID)
-    if not getLiveCap then return 0, false end
-    return Addon:GetCurrentCurrencySnapshotCap(rowType, currencyID)
-end
-
-local function GetCurrentSnapshotCurrencyID(row, rowType, snapTypes)
-    if rowType == snapTypes.CATALYST then
-        return Addon.TRACKING and Addon.TRACKING.catalystCurrencyID
-    elseif rowType == snapTypes.SPARKS then
-        return Addon.TRACKING and Addon.TRACKING.sparkCurrencyID
-    elseif rowType == snapTypes.COFFERKEYS then
-        return Addon.TRACKING and (Addon.TRACKING.cofferKeysDisplayCurrencyID or Addon.TRACKING.cofferKeysCurrencyID)
-    end
-    return row and row.id
-end
-
-local function SnapshotCurrencyCapsAreStale(snap, snapTypes, getLiveCap)
-    if type(snap) ~= "table" then return false end
-
-    if Addon.IsTrackingSnapshotCurrentSeason and not Addon:IsTrackingSnapshotCurrentSeason(snap) then
-        return true
-    end
-
-    if not (getLiveCap and type(snap.rightRows) == "table") then return false end
-
-    for _, row in ipairs(snap.rightRows) do
-        local t = row and row.type
-        if t == snapTypes.CREST or t == snapTypes.CATALYST or t == snapTypes.SPARKS
-                or t == snapTypes.COFFERKEYS or t == snapTypes.MISC then
-            local savedCap = tonumber(row.cap)
-            if savedCap and savedCap > 0 then
-                local currentID = GetCurrentSnapshotCurrencyID(row, t, snapTypes)
-                local liveCap, hasCurrentCap = GetLiveSnapshotCap(getLiveCap, t, currentID)
-                if hasCurrentCap and savedCap > (tonumber(liveCap) or 0) then
-                    return true
-                end
-            end
-        end
-    end
-
-    return false
-end
-
 local function ExtractSnapData(snap, crestIDs, LAYOUT)
     local snapTypes = GetSnapTypes()
     local d = NewSnapData()
-    local getLiveCap = Addon.GetCurrentCurrencySnapshotCap
     if not (snap and snap.rightRows) then return d end
-    local resetCurrencies = SnapshotCurrencyCapsAreStale(snap, snapTypes, getLiveCap)
     for _, r_ in ipairs(snap.rightRows) do
         local t = r_.type
         if t == snapTypes.CREST then
             local rid = tonumber(r_.id)
             for ii = 1, NUM_CRESTS do
                 if crestIDs[ii] == rid then
-                    local cap, hasCurrentCap = GetLiveSnapshotCap(getLiveCap, t, rid)
-                    d.crestCaps[ii]     = cap
-                    d.crestQtys[ii]     = resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(r_.qty, cap, hasCurrentCap)
-                    d.crestEarneds[ii]  = resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(r_.earned, cap, hasCurrentCap)
-                    d.crestTradeups[ii] = r_.tradeup and (resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(r_.tradeup, cap, hasCurrentCap)) or nil
+                    d.crestQtys[ii]     = tonumber(r_.qty)    or 0
+                    d.crestEarneds[ii]  = tonumber(r_.earned) or 0
+                    d.crestCaps[ii]     = tonumber(r_.cap)    or 0
+                    d.crestTradeups[ii] = r_.tradeup and tonumber(r_.tradeup) or nil
                     break
                 end
             end
         elseif t == snapTypes.CATALYST then
-            local currentID = Addon.TRACKING and Addon.TRACKING.catalystCurrencyID
-            local cap, hasCurrentCap = GetLiveSnapshotCap(getLiveCap, t, currentID)
-            d.catCap = cap
-            d.catQty = resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(r_.qty, cap, hasCurrentCap)
+            d.catQty = tonumber(r_.qty) or 0
+            d.catCap = tonumber(r_.cap) or 0
         elseif t == snapTypes.SPARKS then
-            local currentID = Addon.TRACKING and Addon.TRACKING.sparkCurrencyID
-            local cap, hasCurrentCap = GetLiveSnapshotCap(getLiveCap, t, currentID)
-            d.sprkCap = cap
-            d.sprkQty = resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(r_.qty, cap, hasCurrentCap)
+            d.sprkQty = tonumber(r_.qty) or 0
+            d.sprkCap = tonumber(r_.cap) or 0
+            d.sprkQD  = r_.questDone
         elseif t == snapTypes.COFFERKEYS then
-            local currentID = Addon.TRACKING and (Addon.TRACKING.cofferKeysDisplayCurrencyID or Addon.TRACKING.cofferKeysCurrencyID)
-            local cap, hasCurrentCap = GetLiveSnapshotCap(getLiveCap, t, currentID)
-            d.keysCap = cap
-            d.keysQty = resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(r_.qty, cap, hasCurrentCap)
-            d.keysHeld = resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(tonumber(r_.held) or d.keysQty, cap, hasCurrentCap)
+            d.keysQty = tonumber(r_.qty) or 0
+            d.keysCap = tonumber(r_.cap) or 0
+            d.keysHeld = tonumber(r_.held) or d.keysQty
         elseif t == snapTypes.MISC then
             local rid = tonumber(r_.id)
             if rid then
-                local cap, hasCurrentCap = GetLiveSnapshotCap(getLiveCap, t, rid)
-                d.miscCaps[rid] = cap
-                d.miscQtys[rid] = resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(r_.qty, cap, hasCurrentCap)
+                d.miscQtys[rid] = tonumber(r_.qty) or 0
+                d.miscCaps[rid] = tonumber(r_.cap) or 0
             end
         elseif t == snapTypes.QUEST then
             d.questsDone[r_.key] = r_.done
@@ -1324,10 +1229,6 @@ local function ExtractSnapData(snap, crestIDs, LAYOUT)
     end
     d.weapUpgNeed = CalcWeaponUpgradeNeed(snap) or d.weapUpgNeed
     return d
-end
-
-function Addon:_ExtractAltSummarySnapDataForTest(snap, crestIDs, layout)
-    return ExtractSnapData(snap, crestIDs or {}, layout or {})
 end
 
 -- ── Populate ──────────────────────────────────────────────────────────────────
@@ -1457,10 +1358,12 @@ local function RenderCatalystCell(cell, row, sd, noSnap, alpha, th)
 end
 
 local function RenderSparksCell(cell, row, sd, noSnap, alpha, th)
-    local sprkQty, sprkCap = sd.sprkQty, sd.sprkCap
+    local sprkQty, sprkCap, sprkQD = sd.sprkQty, sd.sprkCap, sd.sprkQD
     local sqr, sqg, sqb = 0.64, 0.21, 0.93
-    if sprkCap > 0 and sprkQty >= sprkCap then
+    if sprkCap > 0 and sprkQty >= sprkCap and sprkQD == true then
         sqr, sqg, sqb = 0.3, 1.0, 0.3
+    elseif sprkQD == false then
+        sqr, sqg, sqb = 1.0, 0.5, 0.5
     elseif sprkQty > 0 then
         sqr, sqg, sqb = 1.0, 0.82, 0.0
     end
@@ -1471,7 +1374,7 @@ local function RenderSparksCell(cell, row, sd, noSnap, alpha, th)
         cell._fs:SetText(sprkStr)
         cell._fs:SetTextColor(sqr, sqg, sqb, alpha * (sprkQty > 0 and A_FULL or A_EMPTY))
     end
-    local _qty, _cap = sprkQty, sprkCap
+    local _qty, _cap, _qd = sprkQty, sprkCap, sprkQD
     if noSnap then
         cell:SetScript("OnEnter", nil)
     else
@@ -1482,6 +1385,11 @@ local function RenderSparksCell(cell, row, sd, noSnap, alpha, th)
                 GameTooltip:AddLine((L.TRACKING_SPARKS_XY_FMT or "Sparks: %d / %d"):format(_qty, _cap), 1, 1, 1)
             else
                 GameTooltip:AddLine((L.TRACKING_SPARKS_FMT or "Sparks: %d"):format(_qty), 1, 1, 1)
+            end
+            if _qd == true then
+                GameTooltip:AddLine(L.TRACKING_WEEKLY_QUEST_COMPLETE or "Weekly Quest: Complete", 0.3, 1.0, 0.3)
+            elseif _qd == false then
+                GameTooltip:AddLine(L.TRACKING_WEEKLY_QUEST_INCOMPLETE or "Weekly Quest: Incomplete", 1.0, 0.4, 0.4)
             end
             GameTooltip:Show()
         end)
@@ -2657,7 +2565,7 @@ PopulateSummary = function(panel)
         local charName = (char.key:match("^(.-)%s*%-") or char.key):gsub("^%s+",""):gsub("%s+$","")
         if charName == "" then charName = char.key end
         local maxChars = math.floor(colW / 7)
-        if Addon.CountUtf8Chars(charName) > maxChars then charName = Addon.TruncateUtf8(charName, maxChars - 1) .. "." end
+        if #charName > maxChars then charName = charName:sub(1, maxChars - 1) .. "." end
 
         col.nameFS:SetText(charName)
         col.nameFS:SetFont(FONT_FACE, 12, FONT_FLAGS)
