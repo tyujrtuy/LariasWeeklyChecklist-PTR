@@ -44,6 +44,40 @@ local function GetGVName(gi)
     end
     return ""
 end
+
+Addon.CountUtf8Chars = function(text)
+    local count = 0
+    for i = 1, #text do
+        local b = text:byte(i)
+        if b and (b < 0x80 or b >= 0xC0) then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+Addon.TruncateUtf8 = function(text, maxChars)
+    local count = 0
+    local last = 0
+    local i = 1
+    while i <= #text do
+        local b = text:byte(i)
+        local len = 1
+        if b and b >= 0xF0 then
+            len = 4
+        elseif b and b >= 0xE0 then
+            len = 3
+        elseif b and b >= 0xC0 then
+            len = 2
+        end
+        count = count + 1
+        if count > maxChars then break end
+        last = i + len - 1
+        i = last + 1
+    end
+    return text:sub(1, last)
+end
+
 local GV_THRESHOLDS = { {2,4,6}, {1,4,8}, {2,4,8} }
 
 -- Read from TRACKING so Overlay.lua (which captures the data) uses the same list.
@@ -2565,7 +2599,7 @@ PopulateSummary = function(panel)
         local charName = (char.key:match("^(.-)%s*%-") or char.key):gsub("^%s+",""):gsub("%s+$","")
         if charName == "" then charName = char.key end
         local maxChars = math.floor(colW / 7)
-        if #charName > maxChars then charName = charName:sub(1, maxChars - 1) .. "." end
+        if Addon.CountUtf8Chars(charName) > maxChars then charName = Addon.TruncateUtf8(charName, maxChars - 1) .. "." end
 
         col.nameFS:SetText(charName)
         col.nameFS:SetFont(FONT_FACE, 12, FONT_FLAGS)
