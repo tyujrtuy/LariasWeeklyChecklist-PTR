@@ -5,7 +5,7 @@ NOTE: IDs are kept identical to the current enUS dataset so completion tracking
 stays consistent across locales.
 ]]
 
--- @sheet-version: 7
+-- @sheet-version: 7.2
 
 local LOCALE = "zhCN"
 
@@ -17,7 +17,7 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "7"
+reg.sheet_version = "7.2"
 
 local DATASET = {
 
@@ -30,7 +30,7 @@ local DATASET = {
             { id = "e2863827", text = "如需要，完成2次困难狩猎，获取279装等装备" },
             { id = "66e39766", text = "以故事模式完成新巢穴团队副本首领，体验剧情并获得随机团队装备。" },
             { id = "70348198", text = "完成每周火花任务" },
-            { id = "3e1089cd", text = "完成“战争火花”每周任务以获得第二枚火花；开启战争模式后，可以轻松通过虚影风暴世界任务完成。" },
+            { id = "061c31ef", text = "战争火花任务又被热修了，现在再次发放火花。" },
             { id = "690c60ea", text = "解锁一件第2赛季的异变能量坩埚，在虚影风暴升级祭坛接取任务后可以升级到295装等。先跑模拟！" },
             { id = "3bf6be20", text = "完成“阿塔乌特克地窟：剧毒之旅”，获得 1/2 件 1/6 勇士装备，更重要的是获得一张第 2 赛季地下堡地图。现在还不要使用地图！（看下一行，本周会用到）" },
             { id = "e87e921a", text = "继续推进地下堡，直到解锁 11 层。过程中一旦达到 8 层，就带着地图增益打 8 层地下堡，获得 1/6 英雄装备。这应该是本周英雄装备的唯一来源。" },

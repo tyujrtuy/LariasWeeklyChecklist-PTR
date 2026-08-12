@@ -5,7 +5,7 @@ NOTE: This is the canonical enUS dataset; other locales must keep IDs identical
 so completion tracking stays consistent across locales.
 ]]
 
--- @sheet-version: 7
+-- @sheet-version: 7.2
 
 local LOCALE = "enUS"
 
@@ -17,7 +17,7 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "7"
+reg.sheet_version = "7.2"
 
 local DATASET = {
 
@@ -30,7 +30,7 @@ local DATASET = {
             { id = "e2863827", text = "Complete 2x Hard Prey for 279 ilvl gear if needed" },
             { id = "66e39766", text = "Complete the new Lair raid boss on story mode difficulty for fun and LFR gear." },
             { id = "70348198", text = "Complete weekly spark quest" },
-            { id = "3e1089cd", text = "Complete \"Sparks of War\" weekly quest for 2nd spark - you can easily do this with Voidstorm world quests on war mode" },
+            { id = "061c31ef", text = "Sparks of war was hotfixed AGAIN and is giving a spark again." },
             { id = "690c60ea", text = "Unlock a Season 2 Crucible of Erratic Energies that can be upgraded to 295 by picking up a quest at the voidstorm upgrade altar. Sim it!" },
             { id = "3bf6be20", text = "Complete Vaults of Atal'Utek: A Toxic Tour for 1/2 of a 1/6 champion item and more importantly a Season 2 delve map. DO NOT USE THE MAP YET! (read the next line, you'll use it this week)" },
             { id = "e87e921a", text = "Push delves until you unlock t11. While doing this, once you've reached a t8 delve, do the t8 delve with the map buff to get a 1/6 hero item. Should be the only source of hero items this week." },
