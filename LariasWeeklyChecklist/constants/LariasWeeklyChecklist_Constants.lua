@@ -12,8 +12,7 @@
 local addonName = ...
 local constantsKey = tostring(addonName or "") .. "_CONSTANTS"
 
--- Season data: update these every new season.
--- Optional seasonVariants are auto-selected by startsAt.
+-- Active season data: update these every new season.
 local tracking = {
     supportLinks = {
         doc       = "https://lariasguide.com",
@@ -27,30 +26,25 @@ local tracking = {
         216449, -- Vaskarn <Awakened Crest Exchange>
         203404, -- Vaskarn <Shadowflame Crest Exchange>
     },
-    -- Keep season-scoped IDs in seasonVariants only.
-    seasonVariants = {
-        {
-            name = "Season 2",
-            startsAt = 1786456800,
-            data = {
-                crestCurrencyIDs = { 3442, 3443, 3444, 3445, 3446 },
-                crestConvertItemIDs = { 269867, 26986, 269865, 269866 },
-                crestAchievementIDs = { 62410, 62411, 62412, 62414, 62416 },
-                sparkCurrencyID = 3509,
-                sparkItemID = 274476,
-                sparkQuestID = 0,
-                catalystCurrencyID = 3465,
-                cofferKeysCurrencyID = 0,
-                cofferKeysDisplayCurrencyID = 0,
-                bonusRollCurrencyID = 3511,
-                ilvlBase = 266,
-                ilvlTrackStep = 13,
-                ilvlRankOffsets = { 0, 3, 6, 10, 13, 16 },
-                ilvlMythExtraLevels = { 337, 341, 344 },
-                crestTradeBatch = { 30, 10 },
-                crestUpgradeCostPerStep = 20,
-                crestUpgradeCostReduced = 10,
-                ilvlRefTables = {
+    _activeSeasonName = "Season 2",
+    _activeSeasonNumber = 2,
+    crestCurrencyIDs = { 3442, 3443, 3444, 3445, 3446 },
+    crestConvertItemIDs = { 269867, 26986, 269865, 269866 },
+    crestAchievementIDs = { 62410, 62411, 62412, 62414, 62416 },
+    sparkCurrencyID = 3509,
+    sparkItemID = 274476,
+    catalystCurrencyID = 3465,
+    cofferKeysCurrencyID = 0,
+    cofferKeysDisplayCurrencyID = 0,
+    bonusRollCurrencyID = 3418,
+    ilvlBase = 266,
+    ilvlTrackStep = 13,
+    ilvlRankOffsets = { 0, 3, 6, 10, 13, 16 },
+    ilvlMythExtraLevels = { 337, 341, 344 },
+    crestTradeBatch = { 30, 10 },
+    crestUpgradeCostPerStep = 20,
+    crestUpgradeCostReduced = 10,
+    ilvlRefTables = {
                     -- tracks row schema:
                     -- { tier = <1-5>, rank = <1-9>, ilvl = <number> }
                     -- Overlap is auto-inferred when ilvl also exists on the next tier (e.g. T1 R6 == T2 R1).
@@ -120,29 +114,26 @@ local tracking = {
                         { 10, 295, 305, 305 },
                         { 11, 295, 305, 305 },
                     },
-                },
-                -- questIDs = {
-                --     delversBounty = 0,
-                --     weeklyPrey = 0,
-                --     delveBoss = 0,
-                -- },
-                questItemIDs = {
-                    delversBounty = 0,
-                    weeklyPrey = 0,
-                    delveBoss = 0,
-                },
-                weaponUpgrade = {
-                    shardItemID = 0,
-                    combinedItemID = 0,
-                    maxItemLevel = 0,
-                    shardsPerCombined = 0,
-                    slotIDs = {},
-                },
-                currencyQualityOverrides = {},
-                itemQualityOverrides = {},
-            },
-        },
     },
+    -- questIDs = {
+    --     delversBounty = 0,
+    --     weeklyPrey = 0,
+    --     delveBoss = 0,
+    -- },
+    questItemIDs = {
+        delversBounty = 0,
+        weeklyPrey = 0,
+        delveBoss = 0,
+    },
+    weaponUpgrade = {
+        shardItemID = 0,
+        combinedItemID = 0,
+        maxItemLevel = 0,
+        shardsPerCombined = 0,
+        slotIDs = {},
+    },
+    currencyQualityOverrides = {},
+    itemQualityOverrides = {},
     -- Equipment slot IDs captured for the gear popup and upgrade-cost rows.
     -- Slot 4 (shirt) and ranged/ammo slots are intentionally excluded.
     gearSlotIDs = {1,2,3,5,6,7,8,9,10,11,12,13,14,15,16,17},

@@ -77,6 +77,7 @@ local function PruneStaleTrackedCurrencies(self, globalDb)
     local activeCurrencyIDs = BuildActiveTrackedCurrencyIDSet(self)
     if not next(activeCurrencyIDs) then return end
 
+    local removedStaleTrackedEntry = false
     local config = globalDb.trackedCurrencyConfig
     if type(config) == "table" then
         for i = #config, 1, -1 do
@@ -85,8 +86,13 @@ local function PruneStaleTrackedCurrencies(self, globalDb)
             local source = type(entry) == "table" and entry.source or nil
             if id and not activeCurrencyIDs[id] and source ~= "custom" then
                 table.remove(config, i)
+                removedStaleTrackedEntry = true
             end
         end
+    end
+
+    if removedStaleTrackedEntry then
+        globalDb._trackedCurrencyConfigNeedsActiveSeasonReset = true
     end
 
     local chars = globalDb.chars
@@ -275,21 +281,45 @@ local function BuildDefaultTrackedCurrencyConfig(self)
     return GetBuiltInTrackedConfigEntries(self)
 end
 
-local function BuildTrackedCurrencyConfigForActiveSeason(self)
-    local entries = BuildDefaultTrackedCurrencyConfig and BuildDefaultTrackedCurrencyConfig(self) or {}
-    if NormalizeTrackedCurrencyConfig then
-        return NormalizeTrackedCurrencyConfig(self, entries, false)
+local function ResetTrackedCurrencyConfigForActiveSeason(self, gdb)
+    if type(gdb) ~= "table" then return end
+
+    local entries = BuildDefaultTrackedCurrencyConfig(self)
+    local seen = {}
+    for i = 1, #entries do
+        local entry = entries[i]
+        local id = tonumber(entry and entry.id)
+        local itemID = tonumber(entry and entry.itemID)
+        if id and id > 0 then
+            seen["currency:" .. id] = true
+        elseif itemID and itemID > 0 then
+            seen["item:" .. itemID] = true
+        end
     end
-    return entries
+
+    local existing = gdb.trackedCurrencyConfig
+    if type(existing) == "table" then
+        for i = 1, #existing do
+            local entry = existing[i]
+            local id = type(entry) == "table" and tonumber(entry.id or entry.currencyID) or tonumber(entry)
+            local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+            local source = type(entry) == "table" and entry.source or nil
+            if source == "custom" and id and id > 0 and not seen["currency:" .. id] then
+                entries[#entries + 1] = entry
+                seen["currency:" .. id] = true
+            elseif source == "custom-item" and itemID and itemID > 0 and not seen["item:" .. itemID] then
+                entries[#entries + 1] = entry
+                seen["item:" .. itemID] = true
+            end
+        end
+    end
+
+    gdb.trackedCurrencyConfig = NormalizeTrackedCurrencyConfig(self, entries, false)
 end
 
 function Addon:ResetTrackedCurrencyConfigForActiveSeason()
     local gdb = self:EnsurePrefs()
-    if type(gdb) ~= "table" then return end
-
-    -- Season swaps should track the active season's built-in currencies by default.
-    -- This replaces stale prior-season IDs that would otherwise remain enabled.
-    gdb.trackedCurrencyConfig = BuildTrackedCurrencyConfigForActiveSeason(self)
+    ResetTrackedCurrencyConfigForActiveSeason(self, gdb)
 end
 
 local function IsBuiltInTrackedCurrencyID(self, currencyID)
@@ -423,6 +453,20 @@ local function RestoreMissingBuiltInTrackedCurrencies(self, entries)
     end
 
     return entries
+end
+
+local function HasEnabledBuiltInTrackedCurrency(self, entries)
+    if type(entries) ~= "table" then return false end
+
+    for i = 1, #entries do
+        local entry = entries[i]
+        local id = tonumber(entry and entry.id)
+        if id and entry.enabled ~= false and IsBuiltInTrackedCurrencyID(self, id) then
+            return true
+        end
+    end
+
+    return false
 end
 
 local function RefreshAfterAltSummaryOrderChange(self)
@@ -632,11 +676,22 @@ end
 
 function Addon:GetTrackedCurrencyConfig()
     local gdb = self:EnsurePrefs()
-    if type(gdb.trackedCurrencyConfig) ~= "table" then
+    if gdb._trackedCurrencyConfigNeedsActiveSeasonReset then
+        gdb._trackedCurrencyConfigNeedsActiveSeasonReset = nil
+        ResetTrackedCurrencyConfigForActiveSeason(self, gdb)
+    elseif type(gdb.trackedCurrencyConfig) ~= "table" then
         gdb.trackedCurrencyConfig = NormalizeTrackedCurrencyConfig(self, nil, false)
     else
         gdb.trackedCurrencyConfig = NormalizeTrackedCurrencyConfig(self, gdb.trackedCurrencyConfig, true)
         gdb.trackedCurrencyConfig = RestoreMissingBuiltInTrackedCurrencies(self, gdb.trackedCurrencyConfig)
+    end
+
+    if not gdb._trackedCurrencyConfigActiveBuiltInsEnabled then
+        gdb._trackedCurrencyConfigActiveBuiltInsEnabled = true
+        if #GetBuiltInTrackedConfigEntries(self) > 0
+            and not HasEnabledBuiltInTrackedCurrency(self, gdb.trackedCurrencyConfig) then
+            ResetTrackedCurrencyConfigForActiveSeason(self, gdb)
+        end
     end
 
     if not gdb._trackedCurrencyConfigMigratedCofferKeys then

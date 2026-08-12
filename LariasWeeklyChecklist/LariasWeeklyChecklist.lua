@@ -74,52 +74,6 @@ do
         return dst
     end
 
-    -- Applies season overrides from tracking.seasonVariants.
-    --
-    -- Supported shape:
-    -- tracking.seasonVariants = {
-    --   { name = "Season 1", startsAt = 0, data = { ...override keys... } },
-    --   { name = "Season 2", startsAt = 1780790400, data = { ...override keys... } },
-    -- }
-    --
-    -- Selection rules:
-    -- 1) Choose by startsAt timestamp (newest startsAt <= now).
-    -- 2) If no variant is active yet, base tracking values remain unchanged.
-    local function ApplySeasonVariants(tracking)
-        if type(tracking) ~= "table" then return tracking end
-
-        local variants = tracking.seasonVariants
-        if type(variants) ~= "table" or #variants == 0 then return tracking end
-
-        local now = tonumber(time and time()) or 0
-        local selected, selectedStart = nil, nil
-
-        for i = 1, #variants do
-            local candidate = variants[i]
-            if type(candidate) == "table" then
-                local start = tonumber(candidate.startsAt or candidate.releaseAt or candidate.activateAt) or 0
-                if start <= now and (selectedStart == nil or start >= selectedStart) then
-                    selected = candidate
-                    selectedStart = start
-                end
-            end
-        end
-
-        if type(selected) ~= "table" then return tracking end
-
-        local data = type(selected.data) == "table" and selected.data or selected
-        for k, v in pairs(data) do
-            if k ~= "name" and k ~= "startsAt" and k ~= "releaseAt" and k ~= "activateAt" and k ~= "data" then
-                tracking[k] = DeepCopyTable(v)
-            end
-        end
-
-        tracking._activeSeasonName = selected.name
-        tracking._activeSeasonStartsAt = selectedStart
-        tracking._activeSeasonNumber = tonumber(selected.mythicPlusSeason or selected.seasonNumber)
-        return tracking
-    end
-
     -- Load tracking/constants from the constants file and apply defaults.
     -- NOTE: this intentionally replaces Addon.TRACKING as a whole to make
     -- "remove a key" edits in the constants file take effect immediately.
@@ -200,7 +154,6 @@ do
             -- Constants are authoritative: replace the whole tracking table.
             -- This makes "remove a key" (e.g. commenting out an ID) take effect immediately.
             self.TRACKING = DeepCopyTable(trackingConstants)
-            self.TRACKING = ApplySeasonVariants(self.TRACKING)
             -- Feature flags live inside the constants file so there is one edit spot.
             self.FEATURE_FLAGS = type(trackingConstants.featureFlags) == "table"
                 and DeepCopyTable(trackingConstants.featureFlags)
@@ -1389,7 +1342,7 @@ end
 -- Expose for the Header module so the picker can track the last actively-worked week.
 Addon._HasAnySectionItemChecked = HasAnySectionItemChecked
 
-local function GetCurrentSectionId(db)
+local function GetCurrentSectionId(db, ignoreStoredStart)
     -- Returns the sectionId that should start expanded. Mirrors Header's currentId:
     -- 1. startAtSectionId if explicitly set and valid
     -- 2. First section the user has actively worked (any item checked)
@@ -1397,7 +1350,7 @@ local function GetCurrentSectionId(db)
     -- 4. First section in order
     db = db or Addon:EnsureDB()
     local stored = db.startAtSectionId and tostring(db.startAtSectionId) or ""
-    if stored ~= "" and Addon._sectionsById and Addon._sectionsById[stored] then
+    if not ignoreStoredStart and stored ~= "" and Addon._sectionsById and Addon._sectionsById[stored] then
         return stored
     end
     if Addon._order then
@@ -1411,6 +1364,29 @@ local function GetCurrentSectionId(db)
         end
         if Addon._order[1] then return tostring(Addon._order[1]) end
     end
+    return nil
+end
+
+local function GetFirstVisibleSectionId(db, prefs)
+    db = db or Addon:EnsureDB()
+    prefs = prefs or Addon:EnsurePrefs()
+
+    local startId = tostring(db.startAtSectionId or "")
+    local startIndex = 1
+    if startId ~= "" and Addon._sectionsIndexById and Addon._sectionsIndexById[startId] then
+        startIndex = Addon._sectionsIndexById[startId]
+    end
+
+    local hideDone = prefs.hideCompletedSections and true or false
+    if Addon._order then
+        for i = startIndex, #Addon._order do
+            local sid = Addon._order[i]
+            if not (hideDone and IsSectionCompleteById(sid, db)) then
+                return sid
+            end
+        end
+    end
+
     return nil
 end
 
@@ -2238,9 +2214,9 @@ local function SyncCheckboxesForSection(sectionFrame, sectionId, db)
     end
 end
 
--- precomputedCurrentId: optional; pass from ApplySectionVisuals to avoid
--- calling GetCurrentSectionId once per section on first open.
-UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedCurrentId)
+-- precomputedCurrentId/precomputedFirstVisibleId: optional; pass from
+-- ApplySectionVisuals to avoid walking _order once per section.
+UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedCurrentId, precomputedFirstVisibleId)
     local database = Addon:EnsureDB()
     local prefs    = Addon:EnsurePrefs()
 
@@ -2270,7 +2246,8 @@ UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedCurrentId)
     -- Only auto-collapse a completed section when the user has NOT explicitly
     -- expanded it (tracked via _userExpandedCompleted set in OnHeaderClick).
     local userExpanded = Addon._userExpandedCompleted and Addon._userExpandedCompleted[sectionId]
-    if complete and not userExpanded then
+    local isFirstVisible = tostring(sectionId) == tostring(precomputedFirstVisibleId or GetFirstVisibleSectionId(database, prefs) or "")
+    if complete and not userExpanded and not isFirstVisible then
         SetSectionCollapsed(sectionId, true, database)
     end
 
@@ -2283,7 +2260,10 @@ UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedCurrentId)
     -- keeping only the current active section expanded.
     local explicitlySet = (database.collapsedSections[sectionId] ~= nil)
     local collapsed
-    if complete and not userExpanded then
+    if isFirstVisible then
+        collapsed = false
+        SetSectionCollapsed(sectionId, false, database)
+    elseif complete and not userExpanded then
         collapsed = true
     elseif explicitlySet then
         collapsed = database.collapsedSections[sectionId] == true
@@ -2380,6 +2360,7 @@ local function ApplySectionVisuals(want, haveBefore, dataChanged, database, chil
     -- Pre-compute once so UpdateSectionVisuals doesn't re-walk _order N times
     -- on the first open (when all collapsedSections entries are nil).
     local currentSectionId = GetCurrentSectionId(database)
+    local firstVisibleSectionId = GetFirstVisibleSectionId(database, Addon:EnsurePrefs())
     local pickerSectionId = currentSectionId
     local startId = tostring(database.startAtSectionId or "")
     if startId ~= "" and Addon._sectionsIndexById and Addon._sectionsIndexById[startId] then
@@ -2480,7 +2461,7 @@ local function ApplySectionVisuals(want, haveBefore, dataChanged, database, chil
             end
         end
 
-        UpdateSectionVisuals(sectionFrame, sectionId, currentSectionId)
+        UpdateSectionVisuals(sectionFrame, sectionId, currentSectionId, firstVisibleSectionId)
     end
 end
 

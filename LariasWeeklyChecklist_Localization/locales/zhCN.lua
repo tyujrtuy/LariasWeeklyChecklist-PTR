@@ -138,10 +138,8 @@ local STRINGS = {
 	TRACKING_CATALYST_CHARGES = "化生台充能",
 	TRACKING_CHARGES_FMT = "充能：%d",
 	TRACKING_CHARGES_XY_FMT = "充能：%d/%d",
-	TRACKING_WEEKLY_QUEST_UNKNOWN = "每周任务：未知",
-	TRACKING_WEEKLY_QUEST_COMPLETE = "每周任务：已完成",
-	TRACKING_WEEKLY_QUEST_INCOMPLETE = "每周任务：未完成",
 	TRACKING_STILL_EARNABLE_FMT = "仍可获得：%d",
+	TRACKING_NOT_EARNABLE_YET = "暂时无法获得",
 	TRACKING_SEASON_CAP_REACHED = "已达赛季上限",
 	TRACKING_WEEKLY_CAP_REACHED = "已达每周上限",
 	TRACKING_MAX_CHARGES_FMT = "最大充能：%d",
@@ -160,8 +158,6 @@ local STRINGS = {
 	TRACKING_COFFER_KEYS_LABEL = "宝匣钥匙",
 	TRACKING_SPARKS_FMT = "火花：%d",
 	TRACKING_SPARKS_XY_FMT = "火花：%d / %d",
-	TRACKING_QUEST_DONE_SUFFIX = "（任务完成）",
-	TRACKING_QUEST_NOT_DONE_SUFFIX = "（任务未完成）",
 
 	-- Locale reload popup (shown after changing language)
 	LOCALE_RELOAD_TEXT       = "语言更改已保存。重新加载界面以应用新语言。",
