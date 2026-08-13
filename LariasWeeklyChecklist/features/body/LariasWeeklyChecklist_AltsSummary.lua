@@ -75,6 +75,30 @@ local function GetGearSlotName(sid)
     return "Slot " .. sid
 end
 
+-- Count the UTF-8 characters in a string and, in one pass, compute its prefix
+-- capped at maxChars characters on a byte boundary. Used so character names are
+-- never cut mid multi-byte sequence (which produced a garbled last character).
+local function UTF8TruncateTo(str, maxChars)
+    -- Returns (fullCharCount, truncatedString). fullCharCount is the total
+    -- number of UTF-8 characters; truncatedString trims str to at most maxChars
+    -- characters on a byte boundary (empty when maxChars <= 0).
+    if not str or str == "" then return 0, "" end
+    local count, lastByte = 0, 0
+    local i, n = 1, #str
+    while i <= n do
+        local b = str:byte(i)
+        local step = 1
+        if b >= 0xF0 and i + 3 <= n then step = 4
+        elseif b >= 0xE0 and i + 2 <= n then step = 3
+        elseif b >= 0xC0 and i + 1 <= n then step = 2
+        end
+        count = count + 1
+        if count <= maxChars then lastByte = i + step - 1 end
+        i = i + step
+    end
+    return count, str:sub(1, lastByte)
+end
+
 local function GetWeaponUpgradeCombinedItemID()
     if Addon.GetWeaponUpgradeCombinedItemID then
         return tonumber(Addon:GetWeaponUpgradeCombinedItemID()) or 0
@@ -406,7 +430,13 @@ ShowGearPopup = function(anchor, charKey, charName, cr, cg, cb, snap)
     end
     f._charKey = charKey
     f:ClearAllPoints()
-    f:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 6, 0)
+    -- Default open position: upper-right of the main checklist panel.
+    local gearMain = Addon._mainFrame or _G["LariasWeeklyChecklistFrame"]
+    if gearMain then
+        f:SetPoint("TOPLEFT", gearMain, "TOPRIGHT", 6, 0)
+    else
+        f:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 6, 0)
+    end
     _gearClickCatcher:Show()
     f:Show()
 end
@@ -2659,7 +2689,8 @@ PopulateSummary = function(panel)
         local charName = (char.key:match("^(.-)%s*%-") or char.key):gsub("^%s+",""):gsub("%s+$","")
         if charName == "" then charName = char.key end
         local maxChars = math.floor(colW / 7)
-        if #charName > maxChars then charName = charName:sub(1, maxChars - 1) .. "." end
+        local nameCount, nameTrunc = UTF8TruncateTo(charName, maxChars - 1)
+        if nameCount > maxChars then charName = nameTrunc .. "." end
 
         col.nameFS:SetText(charName)
         col.nameFS:SetFont(FONT_FACE, 12, FONT_FLAGS)
@@ -2859,16 +2890,16 @@ function Addon:OpenAltsSummary(anchorFrame, opts)
     -- Sync scale and opacity to current settings (frame may have been created lazily).
     f:SetScale(Addon.GetUIScale and Addon:GetUIScale() or 1.0)
     if Addon.ApplyOpacity then Addon:ApplyOpacity() end
-    if not f._wasMoved then
-        f:ClearAllPoints()
-        local mainFrame = Addon._mainFrame or _G["LariasWeeklyChecklistFrame"]
-        if mainFrame then
-            f:SetPoint("TOPRIGHT", mainFrame, "TOPLEFT", -6, 0)
-        elseif anchorFrame then
-            f:SetPoint("TOPLEFT", anchorFrame, "BOTTOMLEFT", 0, -4)
-        else
-            f:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
-        end
+    -- Default open position: left of the main panel. The frame stays draggable,
+    -- so the player can move it while it is open.
+    f:ClearAllPoints()
+    local mainFrame = Addon._mainFrame or _G["LariasWeeklyChecklistFrame"]
+    if mainFrame then
+        f:SetPoint("TOPRIGHT", mainFrame, "TOPLEFT", -6, 0)
+    elseif anchorFrame then
+        f:SetPoint("TOPLEFT", anchorFrame, "BOTTOMLEFT", 0, -4)
+    else
+        f:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
     end
     f._inline  = false
     f._completionRedirect = opts.completionRedirect == true
