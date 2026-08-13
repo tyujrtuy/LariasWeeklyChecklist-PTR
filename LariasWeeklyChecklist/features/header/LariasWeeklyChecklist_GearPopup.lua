@@ -220,6 +220,13 @@ function Addon:OpenRestoreHiddenCurrencies(anchor)
             onRestore = function() Addon:SetQuestHidden(_qk, false) end,
         }
     end
+    for _, e in ipairs(self.GetHiddenCrestAchievementList and self:GetHiddenCrestAchievementList() or {}) do
+        local _tierIdx = e.tierIdx
+        combined[#combined + 1] = {
+            name      = e.name .. " |cff808080" .. (L.RESTORE_HIDDEN_ACHIEVEMENT_SUFFIX or "(Achievement)") .. "|r",
+            onRestore = function() Addon:SetCrestAchievementHidden(_tierIdx, false) end,
+        }
+    end
     if #combined == 0 then
         if self._restoreHiddenFrame then self._restoreHiddenFrame:Hide() end
         return

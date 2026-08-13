@@ -5,7 +5,7 @@ NOTE: IDs are kept identical to the current enUS dataset so completion tracking
 stays consistent across locales.
 ]]
 
--- @sheet-version: 4
+-- @sheet-version: 7.2
 
 local LOCALE = "zhCN"
 
@@ -17,7 +17,7 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "4"
+reg.sheet_version = "7.2"
 
 local DATASET = {
 
@@ -30,8 +30,10 @@ local DATASET = {
             { id = "e2863827", text = "如需要，完成2次困难狩猎，获取279装等装备" },
             { id = "66e39766", text = "以故事模式完成新巢穴团队副本首领，体验剧情并获得随机团队装备。" },
             { id = "70348198", text = "完成每周火花任务" },
-            { id = "59e21858", text = "完成 ? 阿兹塔雷克，获得30个无上限英雄纹章，并为下周的 ?? 做准备" },
-            { id = "db6bed39", text = "如果还没解锁，请解锁到11层地下堡，以便下周能打一次。" },
+            { id = "061c31ef", text = "战争火花又被热修了，现在再次给予火花。" },
+            { id = "690c60ea", text = "解锁第2赛季的不稳定的能量熔炉，通过在虚影风暴升级祭坛接取任务可将其升级到295。模拟一下！" },
+            { id = "3bf6be20", text = "完成'阿塔乌特克地窟：剧毒之旅'，获得1/6勇士装备的1/2，更重要的是第2赛季地下堡地图。先别用地图！（看下一行，本周你会用到）" },
+            { id = "e87e921a", text = "推进地下堡直到解锁11层。过程中，一旦达到8层地下堡，就带地图增益打8层地下堡，获得1/6英雄装备。这应该是本周英雄装备的唯一来源。" },
             { id = "090e43c1", text = "如果下周不分团，应该填满地下堡宝库，争取拿到套装部件。如果下周分团，只需确保总共填满3个槽位，以便拿到一个镶孔。" },
         },
     },

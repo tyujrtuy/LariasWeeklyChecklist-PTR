@@ -92,7 +92,7 @@ end
 
 function AddonUtils.SetTooltip(frame, text, anchor)
     GameTooltip:SetOwner(frame, anchor or "ANCHOR_RIGHT")
-    GameTooltip:SetText(text, 1, 1, 1, 1, true)
+    GameTooltip:SetText(text)
     GameTooltip:Show()
 end
 
@@ -115,7 +115,7 @@ function AddonUtils.SetTooltipLines(frame, lines, anchor)
         local g    = type(line) == "table" and (line.g    or line[3] or 1) or 1
         local b    = type(line) == "table" and (line.b    or line[4] or 1) or 1
         if i == 1 then
-            GameTooltip:SetText(text, r, g, b, 1, true)
+            GameTooltip:SetText(text, r, g, b)
         else
             GameTooltip:AddLine(text, r, g, b, true)
         end

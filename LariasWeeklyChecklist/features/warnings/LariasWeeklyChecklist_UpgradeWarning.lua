@@ -101,10 +101,9 @@ end
 
 local function SetupHooks()
     if ItemUpgradeFrame then
-        local PAD_W   = 14
+        local PAD_W   = 16
         local BTN_H   = 24
-        local GAP     = 10
-        local PANEL_H = 108
+        local PANEL_H = 120
 
         local holder = Addon:NewThemedFrame(nil, UIParent)
         holder:SetFrameStrata("DIALOG")
@@ -123,13 +122,15 @@ local function SetupHooks()
         local label = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         label:SetPoint("TOPLEFT",  holder, "TOPLEFT",  PAD_W,  -bodyTop)
         label:SetPoint("TOPRIGHT", holder, "TOPRIGHT", -PAD_W, -bodyTop)
+        label:SetHeight(42)
         label:SetJustifyH("CENTER")
+        label:SetJustifyV("MIDDLE")
         label:SetSpacing(2)
         label:SetWordWrap(true)
         label:SetShadowOffset(1, -1)
 
         local disableBtn = Addon.Controls.NewActionButton(holder, 220, BTN_H)
-        disableBtn:SetPoint("TOP", label, "BOTTOM", 0, -GAP)
+        disableBtn:SetPoint("BOTTOM", holder, "BOTTOM", 0, 10)
         disableBtn:SetText(L.UPGRADE_WARN_DISABLE_BTN or "Hide Upgrade Warning")
         disableBtn:SetScript("OnEnter", function(self)
             Addon.AddonUtils.SetTooltip(self, L.UPGRADE_WARN_DISABLE_TOOLTIP or "Check Larias' guide for more information.", "ANCHOR_BOTTOM")

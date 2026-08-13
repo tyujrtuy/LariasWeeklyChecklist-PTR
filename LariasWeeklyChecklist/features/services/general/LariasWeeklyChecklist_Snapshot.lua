@@ -13,6 +13,7 @@ local API_DEFAULTS = {
     ChallengeMode = function() return C_ChallengeMode end,
     ItemUpgrade = function() return C_ItemUpgrade end,
     ItemLocation = function() return ItemLocation end,
+    Item = function() return C_Item end,
     GetInventoryItemLink = function() return GetInventoryItemLink end,
     GetDetailedItemLevelInfo = function() return GetDetailedItemLevelInfo end,
     GetInventoryItemLevel = function() return GetInventoryItemLevel end,
@@ -67,7 +68,130 @@ local function WipeArray(t)
     return t
 end
 
+local function WipeTable(t)
+    if type(t) ~= "table" then return {} end
+    for key in pairs(t) do
+        t[key] = nil
+    end
+    return t
+end
+
 local _checkedTiers = {}
+
+local ITEM_REDUNDANCY_SLOT_IDS = {
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+}
+
+local TRACK_NAME_TO_TIER = {
+    adventurer = 1,
+    explorer = 1,
+    veteran = 2,
+    champion = 3,
+    hero = 4,
+    myth = 5,
+    mythic = 5,
+}
+
+local function NormalizeTrackName(value)
+    if type(value) ~= "string" then return nil end
+    value = value:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    value = value:match("^%s*(.-)%s*$")
+    if value == "" then return nil end
+    return value:lower():match("^(%S+)")
+end
+
+local function GetTierFromTrackString(trackString)
+    local key = NormalizeTrackName(trackString)
+    if not key then return nil end
+
+    local direct = TRACK_NAME_TO_TIER[key]
+    if direct then return direct end
+
+    if Addon.IlvlUtils and Addon.IlvlUtils.GetCrestTrackName then
+        for tierIdx = 1, 5 do
+            local name = NormalizeTrackName(Addon.IlvlUtils.GetCrestTrackName(tierIdx))
+            if name and name == key then return tierIdx end
+        end
+    end
+
+    return nil
+end
+
+local function ParseUpgradeTrackLine(text)
+    if type(text) ~= "string" then return nil end
+
+    local cleaned = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    cleaned = cleaned:match("^%s*(.-)%s*$")
+    if cleaned == "" then return nil end
+
+    local track, rank, maxRank = cleaned:match("^(%S+)%s+(%d+)%s*/%s*(%d+)")
+    if not track then
+        track, rank, maxRank = cleaned:match("^(%S+)%s+%((%d+)%s*/%s*(%d+)%)")
+    end
+    if not track then
+        for trackName in pairs(TRACK_NAME_TO_TIER) do
+            local patternName = trackName:gsub("^%l", string.upper)
+            rank, maxRank = cleaned:match(patternName .. "%s+(%d+)%s*/%s*(%d+)")
+            if rank and maxRank then
+                track = patternName
+                break
+            end
+            rank, maxRank = cleaned:match(patternName .. "%s+%((%d+)%s*/%s*(%d+)%)")
+            if rank and maxRank then
+                track = patternName
+                break
+            end
+        end
+    end
+    if not track then return nil end
+
+    local tierIdx = GetTierFromTrackString(track)
+    rank = tonumber(rank)
+    maxRank = tonumber(maxRank)
+    if not (tierIdx and rank and maxRank) then return nil end
+    if rank <= 0 or maxRank <= 0 then return nil end
+
+    return tierIdx, rank, maxRank, track
+end
+
+local function GetTooltipUpgradeTrackInfo(itemLink)
+    if not (itemLink and API.TooltipInfo and API.TooltipInfo.GetHyperlink) then return nil end
+
+    local data = API.TooltipInfo.GetHyperlink(itemLink)
+    if not (data and type(data.lines) == "table") then return nil end
+
+    for _, line in ipairs(data.lines) do
+        local tierIdx, rank, maxRank, track = ParseUpgradeTrackLine(line and line.leftText)
+        if tierIdx then return tierIdx, rank, maxRank, track end
+        tierIdx, rank, maxRank, track = ParseUpgradeTrackLine(line and line.rightText)
+        if tierIdx then return tierIdx, rank, maxRank, track end
+    end
+
+    return nil
+end
+
+local function GetItemUpgradeTrackInfo(itemLink)
+    if not itemLink then return nil end
+
+    if not (API.Item and API.Item.GetItemUpgradeInfo) then
+        return GetTooltipUpgradeTrackInfo(itemLink)
+    end
+
+    local ok, upgradeInfo = pcall(API.Item.GetItemUpgradeInfo, itemLink)
+    if not (ok and type(upgradeInfo) == "table") then
+        return GetTooltipUpgradeTrackInfo(itemLink)
+    end
+
+    local tierIdx = GetTierFromTrackString(upgradeInfo.trackString)
+    local rank = tonumber(upgradeInfo.currentLevel)
+    local maxRank = tonumber(upgradeInfo.maxLevel)
+    if not (tierIdx and rank and maxRank) then
+        return GetTooltipUpgradeTrackInfo(itemLink)
+    end
+    if rank <= 0 or maxRank <= 0 then return nil end
+
+    return tierIdx, rank, maxRank, upgradeInfo.trackString
+end
 
 local function CopyTableFields(dst, src)
     if type(dst) ~= "table" then dst = {} end
@@ -235,6 +359,21 @@ function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
     end
 
     if refreshGear then
+    snap.itemUpgradeWatermarks = WipeTable(snap.itemUpgradeWatermarks)
+    snap.itemUpgradeWatermarksCaptured = false
+    if API.ItemUpgrade and type(API.ItemUpgrade.GetHighWatermarkForSlot) == "function" then
+        local capturedCount = 0
+        for _, redundancySlot in ipairs(ITEM_REDUNDANCY_SLOT_IDS) do
+            local ok, watermark = pcall(API.ItemUpgrade.GetHighWatermarkForSlot, redundancySlot)
+            watermark = ok and tonumber(watermark) or nil
+            if watermark then
+                snap.itemUpgradeWatermarks[redundancySlot] = watermark
+                capturedCount = capturedCount + 1
+            end
+        end
+        snap.itemUpgradeWatermarksCaptured = capturedCount == #ITEM_REDUNDANCY_SLOT_IDS
+    end
+
     -- Equipment slots: full item data for the gear popup and upgrade-cost rows.
     -- tier and rank are derived from the equipped item's ilvl using IlvlUtils.
     local previousBestGearSlots = type(snap.bestGearSlots) == "table" and snap.bestGearSlots or nil
@@ -264,12 +403,36 @@ function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
             local rawIlvl = API.GetInventoryItemLevel and API.GetInventoryItemLevel("player", sid)
             ilvl = tonumber(rawIlvl) or 0
         end
+        local itemUpgradeHighWatermark = 0
+        if link and API.ItemUpgrade and type(API.ItemUpgrade.GetHighWatermarkForItem) == "function" then
+            local ok, characterHighWatermark, accountHighWatermark =
+                pcall(API.ItemUpgrade.GetHighWatermarkForItem, link)
+            if ok then
+                itemUpgradeHighWatermark = math.max(tonumber(characterHighWatermark) or 0,
+                                                    tonumber(accountHighWatermark) or 0)
+            end
+        end
 
-        local tierIdx, rank, maxRank
+        local tierIdx, rank, maxRank, upgradeTrackString
+        local trackTierConfirmed = false
+        local trackTierIdx, trackRank, trackMaxRank, trackName = GetItemUpgradeTrackInfo(link)
+        if trackTierIdx and trackRank and trackMaxRank then
+            tierIdx = trackTierIdx
+            rank = trackRank
+            maxRank = trackMaxRank
+            upgradeTrackString = trackName
+            trackTierConfirmed = true
+        end
+
         if ilvl > 0 and Addon.IlvlUtils then
-            tierIdx = Addon.IlvlUtils.GetTier(ilvl)
-            if tierIdx then
-                rank    = Addon.IlvlUtils.GetRank(ilvl, tierIdx)
+            local ilvlTierIdx = Addon.IlvlUtils.GetTier(ilvl)
+            if not tierIdx then
+                tierIdx = ilvlTierIdx
+            end
+            if not rank and tierIdx then
+                rank = Addon.IlvlUtils.GetRank(ilvl, tierIdx)
+            end
+            if not maxRank and tierIdx then
                 maxRank = maxRankCount
             end
         end
@@ -281,9 +444,12 @@ function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
         end
         slotData.link = link
         slotData.ilvl = ilvl
+        slotData.itemUpgradeHighWatermark = itemUpgradeHighWatermark
         slotData.rank = rank
         slotData.maxRank = maxRank
         slotData.tierIdx = tierIdx
+        slotData.upgradeTrackString = upgradeTrackString
+        slotData.trackTierConfirmed = trackTierConfirmed or nil
         slotData.isEmbellished = IsItemEmbellished(link) or nil
         slotData.trueMaxRank = nil
         slotData.upgradeInfoUnavailable = nil
@@ -321,6 +487,8 @@ function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
                 cleared.rank = nil
                 cleared.maxRank = nil
                 cleared.tierIdx = nil
+                cleared.upgradeTrackString = nil
+                cleared.trackTierConfirmed = nil
                 cleared.isEmbellished = nil
                 cleared.trueMaxRank = nil
                 cleared.upgradeInfoUnavailable = nil
@@ -372,7 +540,7 @@ function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
                         -- would be falsely flagged embellished (trueMaxRank = 1+1 = 2 < 6)
                         -- without this correction.  The upgrade currency resolves the
                         -- ambiguity definitively.
-                        if costs and crestIDs then
+                        if costs and crestIDs and not gs.trackTierConfirmed then
                             local actualTierIdx = Addon:GetCrestTierFromCosts(costs)
                             if actualTierIdx and actualTierIdx ~= tierIdx then
                                 local newRank = Addon.IlvlUtils
@@ -392,6 +560,12 @@ function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
                         -- Empty upgradeLevelInfos is not enough proof of a cap; WoW can
                         -- return that when upgrade details are temporarily unavailable.
                         local nLevels     = #info.upgradeLevelInfos
+                        if info.itemUpgradeable == false then
+                            gearSlots[sid].trueMaxRank = gs.rank
+                            gearSlots[sid].upgradeCostRemaining = 0
+                            return
+                        end
+
                         local trueMaxRank = (nLevels > 0) and (gs.rank + nLevels) or nil
                         if trueMaxRank and trueMaxRank < gs.maxRank then
                             gearSlots[sid].trueMaxRank = trueMaxRank
