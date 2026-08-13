@@ -78,7 +78,9 @@ end
 -- Count the UTF-8 characters in a string and, in one pass, compute its prefix
 -- capped at maxChars characters on a byte boundary. Used so character names are
 -- never cut mid multi-byte sequence (which produced a garbled last character).
-local function UTF8TruncateTo(str, maxChars)
+-- Attached to the Addon table (not a file local) so PopulateSummary can call it
+-- without adding another upvalue (WoW caps closures at 60 upvalues).
+Addon.UTF8TruncateTo = Addon.UTF8TruncateTo or function(str, maxChars)
     -- Returns (fullCharCount, truncatedString). fullCharCount is the total
     -- number of UTF-8 characters; truncatedString trims str to at most maxChars
     -- characters on a byte boundary (empty when maxChars <= 0).
@@ -2689,7 +2691,7 @@ PopulateSummary = function(panel)
         local charName = (char.key:match("^(.-)%s*%-") or char.key):gsub("^%s+",""):gsub("%s+$","")
         if charName == "" then charName = char.key end
         local maxChars = math.floor(colW / 7)
-        local nameCount, nameTrunc = UTF8TruncateTo(charName, maxChars - 1)
+        local nameCount, nameTrunc = Addon.UTF8TruncateTo(charName, maxChars - 1)
         if nameCount > maxChars then charName = nameTrunc .. "." end
 
         col.nameFS:SetText(charName)
