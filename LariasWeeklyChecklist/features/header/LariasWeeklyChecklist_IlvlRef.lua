@@ -198,6 +198,19 @@ local function GridTable(parent, posY, cols, rows)
     return posY
 end
 
+-- Re-anchor the ilvl reference window to the main panel on every open (same as
+-- the alt summary panel), while keeping it draggable. The saved drag position is
+-- intentionally ignored so the window always follows the main panel.
+function Addon:AnchorIlvlRefWindow(win)
+    win:ClearAllPoints()
+    local mainFrame = self._mainFrame or _G["LariasWeeklyChecklistFrame"]
+    if mainFrame then
+        win:SetPoint("TOPLEFT", mainFrame, "TOPRIGHT", 4, 0)
+    else
+        win:SetPoint("CENTER", UIParent, "CENTER", 260, 0)
+    end
+end
+
 local function BuildIlvlRefWindow()
     local Locale = Addon.L
 
@@ -584,18 +597,9 @@ local function BuildIlvlRefWindow()
     -- Default width = 2-col layout (Tracks | everything else).  Set after
     -- BuildSection calls (wTracks/wRight2 not yet available here).
     win:SetSize(WIN_W, WIN_H)
-    local _savedIlvlPos = Addon.db and Addon.db.global and Addon.db.global.ilvlRefPos
-    if _savedIlvlPos and _savedIlvlPos.x and _savedIlvlPos.y then
-        win:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", _savedIlvlPos.x, _savedIlvlPos.y)
-    else
-        -- Default: snap to the right edge of the main checklist frame, same Y.
-        local mainFrame = Addon._mainFrame or _G["LariasWeeklyChecklistFrame"]
-        if mainFrame then
-            win:SetPoint("TOPLEFT", mainFrame, "TOPRIGHT", 4, 0)
-        else
-            win:SetPoint("CENTER", UIParent, "CENTER", 260, 0)
-        end
-    end
+    -- Re-anchor to the main panel on every open (same as the alt summary panel),
+    -- while staying draggable. The saved drag position is intentionally ignored.
+    Addon:AnchorIlvlRefWindow(win)
     win:SetClampedToScreen(true)
     win:SetMovable(true)
     win:EnableMouse(true)
@@ -797,6 +801,8 @@ function Addon:ToggleIlvlRefWindow()
         if self._ilvlRefWindow:IsShown() then
             self._ilvlRefWindow:Hide()
         else
+            -- Re-anchor to the main panel on every open, while staying draggable.
+            self:AnchorIlvlRefWindow(self._ilvlRefWindow)
             self._ilvlRefWindow:Show()
         end
         return
