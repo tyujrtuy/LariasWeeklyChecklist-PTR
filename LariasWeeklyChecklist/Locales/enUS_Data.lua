@@ -5,7 +5,7 @@ NOTE: This is the canonical enUS dataset; other locales must keep IDs identical
 so completion tracking stays consistent across locales.
 ]]
 
--- @sheet-version: 7.2
+-- @sheet-version: 8
 
 local LOCALE = "enUS"
 
@@ -17,7 +17,7 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "7.2"
+reg.sheet_version = "8"
 
 local DATASET = {
 
@@ -25,7 +25,7 @@ local DATASET = {
         id = "21fa8e1b",
         title = "Week 0 - Aug 11 - Pre-Season",
         items = {
-            { id = "4de0b2be", text = "Complete the new zone intro campaign" },
+            { id = "e3f0c2bd", text = "Complete the new zone intro campaign." },
             { id = "7508a529", text = "Complete a world tour of M0's for 292 ilvl gear" },
             { id = "e2863827", text = "Complete 2x Hard Prey for 279 ilvl gear if needed" },
             { id = "66e39766", text = "Complete the new Lair raid boss on story mode difficulty for fun and LFR gear." },
@@ -34,7 +34,8 @@ local DATASET = {
             { id = "690c60ea", text = "Unlock a Season 2 Crucible of Erratic Energies that can be upgraded to 295 by picking up a quest at the voidstorm upgrade altar. Sim it!" },
             { id = "3bf6be20", text = "Complete Vaults of Atal'Utek: A Toxic Tour for 1/2 of a 1/6 champion item and more importantly a Season 2 delve map. DO NOT USE THE MAP YET! (read the next line, you'll use it this week)" },
             { id = "e87e921a", text = "Push delves until you unlock t11. While doing this, once you've reached a t8 delve, do the t8 delve with the map buff to get a 1/6 hero item. Should be the only source of hero items this week." },
-            { id = "090e43c1", text = "If you are not doing raid splits next week, you should fill out your delve vault to try to get tier pieces. If you are doing splits next week, just make sure that you have 3 total slots filled so you can get a socket." },
+            { id = "0e77abc6", text = "If you are not doing raid splits next week, you should fill out your delve vault with tier 6 Delves to try to get tier pieces. If you are doing splits next week, just make sure that you have 3 total slots filled so you can get a socket." },
+            { id = "1fb55f58", text = "You can freely spend any champion and below crests at any time." },
         },
     },
     {
@@ -60,7 +61,7 @@ local DATASET = {
         title = "Week 2 - Aug 25",
         items = {
             { id = "2cb1a5fb", text = "IMPORTANT: Check Guide for links to resources for where to bonus roll." },
-            { id = "f66d3849", text = "Take a bonus roll - your vault loot doesn't matter. (this is slightly hyperbolic - you might want to take a m+ trinket)" },
+            { id = "d800e84b", text = "Open your vault - Check Guide for what to take." },
             { id = "82c130d3", text = "Do LFR for tier pieces if you still need tier." },
             { id = "70348198", text = "Complete weekly spark quest" },
             { id = "a032b050", text = "Farm +12's if you need to for crests. You don't have to spam M+ this season if you can get your crests from other sources." },
@@ -74,7 +75,7 @@ local DATASET = {
         id = "212586b9",
         title = "Week 3 - Sep 1",
         items = {
-            { id = "f66d3849", text = "Take a bonus roll - your vault loot doesn't matter. (this is slightly hyperbolic - you might want to take a m+ trinket)" },
+            { id = "d800e84b", text = "Open your vault - Check Guide for what to take." },
             { id = "70348198", text = "Complete weekly spark quest" },
             { id = "a032b050", text = "Farm +12's if you need to for crests. You don't have to spam M+ this season if you can get your crests from other sources." },
             { id = "be0f768b", text = "Heroic: Upgrade a 3/6h item to 6/6h for 60 Heroic Crests. Upgrade 1 3/6h items to 4/6h for 20 Heroic Crests. Use 20 Hero crests for a myth 1/6 item that you need to upgrade to 2/6 first." },
@@ -87,7 +88,7 @@ local DATASET = {
         id = "c607b160",
         title = "Week 4 - Sep 8 - Done With Hero Crests with perfect drops",
         items = {
-            { id = "f66d3849", text = "Take a bonus roll - your vault loot doesn't matter. (this is slightly hyperbolic - you might want to take a m+ trinket)" },
+            { id = "d800e84b", text = "Open your vault - Check Guide for what to take." },
             { id = "70348198", text = "Complete weekly spark quest" },
             { id = "a032b050", text = "Farm +12's if you need to for crests. You don't have to spam M+ this season if you can get your crests from other sources." },
             { id = "744d79f9", text = "Heroic: Upgrade 1 3/6h item to 6/6h for 60 Heroic Crests. You are done with hero crests with absolutely perfect drops this week. Otherwise, it will be next week." },
@@ -99,7 +100,7 @@ local DATASET = {
         id = "d27e3b4f",
         title = "Week 5+ - Sep 15+ - Done with Hero Crests with imperfect drops",
         items = {
-            { id = "f66d3849", text = "Take a bonus roll - your vault loot doesn't matter. (this is slightly hyperbolic - you might want to take a m+ trinket)" },
+            { id = "d800e84b", text = "Open your vault - Check Guide for what to take." },
             { id = "70348198", text = "Complete weekly spark quest" },
             { id = "197d06bc", text = "If you didn't have perfect drops, you finish with Hero crests this week." },
             { id = "a032b050", text = "Farm +12's if you need to for crests. You don't have to spam M+ this season if you can get your crests from other sources." },
