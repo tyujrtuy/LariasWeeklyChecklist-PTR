@@ -5,7 +5,7 @@ NOTE: This is the canonical enUS dataset; other locales must keep IDs identical
 so completion tracking stays consistent across locales.
 ]]
 
--- @sheet-version: 8
+-- @sheet-version: 9
 
 local LOCALE = "enUS"
 
@@ -17,36 +17,37 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "8"
+reg.sheet_version = "9"
 
 local DATASET = {
 
     {
-        id = "21fa8e1b",
-        title = "Week 0 - Aug 11 - Pre-Season",
+        id = "46b99ca0",
+        title = "Week 0 - Aug 11 - Pre-Season - CURRENT WEEK",
         items = {
+            { id = "1fb55f58", text = "You can freely spend any champion and below crests at any time." },
             { id = "e3f0c2bd", text = "Complete the new zone intro campaign." },
             { id = "7508a529", text = "Complete a world tour of M0's for 292 ilvl gear" },
             { id = "e2863827", text = "Complete 2x Hard Prey for 279 ilvl gear if needed" },
             { id = "66e39766", text = "Complete the new Lair raid boss on story mode difficulty for fun and LFR gear." },
-            { id = "70348198", text = "Complete weekly spark quest" },
-            { id = "061c31ef", text = "Sparks of war was hotfixed AGAIN and is giving a spark again." },
+            { id = "8c0621a3", text = "Complete 2x weekly spark quests - you'll be able to get 2 more next week" },
             { id = "690c60ea", text = "Unlock a Season 2 Crucible of Erratic Energies that can be upgraded to 295 by picking up a quest at the voidstorm upgrade altar. Sim it!" },
-            { id = "3bf6be20", text = "Complete Vaults of Atal'Utek: A Toxic Tour for 1/2 of a 1/6 champion item and more importantly a Season 2 delve map. DO NOT USE THE MAP YET! (read the next line, you'll use it this week)" },
-            { id = "e87e921a", text = "Push delves until you unlock t11. While doing this, once you've reached a t8 delve, do the t8 delve with the map buff to get a 1/6 hero item. Should be the only source of hero items this week." },
+            { id = "c9797aa9", text = "Complete Vaults of Atal'Utek: A Toxic Tour for a Season 2 delve map. Do not use until you've unlocked T8 delves" },
+            { id = "bbfd5a28", text = "Push delves until you unlock t11. While doing this, once you've reached a t8 delve, do the t8 delve with the map buff to get a 1/6 hero item. It should be the only source of hero items this week." },
+            { id = "15ba7791", text = "(OPTIONAL) Incredibly degenerate: If you want to try for the HOF ?? Delve boss next week, be degenerate and level Alleria to 80. This is the dumbest thing you could possibly do this weekend so of course several of my raiders have done it. You do this by entering the Ring of Glory Delve on T11 with the Dunduns Favor curio equipped which lets you automatically pick up curios by running over them. You proceed to run over all the curious, leave the delve, and repeat for 6+ hours." },
+            { id = "2ee86b71", text = "(OPTIONAL) A less degenerate thing you could do is Check Guide for a link to Neryssa's Corrosive Codex information and pick two of these powers to get. They work in the ?? delve boss lair." },
             { id = "0e77abc6", text = "If you are not doing raid splits next week, you should fill out your delve vault with tier 6 Delves to try to get tier pieces. If you are doing splits next week, just make sure that you have 3 total slots filled so you can get a socket." },
-            { id = "1fb55f58", text = "You can freely spend any champion and below crests at any time." },
         },
     },
     {
-        id = "a932c06c",
-        title = "Week 1 - Aug 18 - Season Starts",
+        id = "7a8db7e2",
+        title = "Week 1 - Aug 18 - Season Starts - Not updated below for 4x sparks yet",
         items = {
             { id = "f6802606", text = "Take a tier piece if your guild doesn't do splits. Take a socket if your guild does do splits." },
             { id = "1fb55f58", text = "You can freely spend any champion and below crests at any time." },
             { id = "1ad52558", text = "Do LFR for tier pieces." },
-            { id = "70348198", text = "Complete weekly spark quest" },
-            { id = "078b6f7f", text = "Complete ?? Azta'rec for 60 uncapped hero Crests(30 if you already did ? difficulty) and 30 uncapped Myth Crests. Confirmed for S2" },
+            { id = "479fea56", text = "Complete 2x weekly spark quests for a total of 4" },
+            { id = "87bf0a54", text = "Complete ?? Azta'rec for 60 uncapped hero Crests and 30 uncapped Myth Crests. Confirmed for S2" },
             { id = "1798a832", text = "Complete 1 Tier 11 delve with a map for a quick hero item and the season 2 Cracked Keystone quest for 20 uncapped Hero and Myth crests. Azta'rec has a high chance of dropping a map but if he doesn't drop you one, an easy source of the \"boss summoning\" for delves is doing the weekly nightmare prey quest. It's guaranteed to give you one. If you have friends/guildies with extra time, they can do it, then you summon the boss in a 5-man delve and everyone loots a map. WARNING: This gives a keystone for m+. If you plan on using the \"fill your inventory\" trick to get a higher tier key, do that before doing this." },
             { id = "c20c805a", text = "Do not pug the new \"world/lair boss\" on normal+ difficulties. You'll be doing this with your guild." },
             { id = "0cbc66bc", text = "Farm +10's for 3/6h 311 item level pieces, vault slots and all your various Crests." },
