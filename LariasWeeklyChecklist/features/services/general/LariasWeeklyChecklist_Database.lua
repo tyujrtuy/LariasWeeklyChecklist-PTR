@@ -140,7 +140,6 @@ function Addon:SetupAddonDB()
             currencyConfigWin = false, -- LibWindow-1.1 position storage
             crestConvertWin = false, -- LibWindow-1.1 position storage
             -- Account-wide display preferences.
-            hideCompletedSections = true,
             showGreatVault        = true,
             showCurrency          = true,
             showChangeWeekBtn     = false,

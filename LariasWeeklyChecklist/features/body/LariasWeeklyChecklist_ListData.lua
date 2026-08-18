@@ -192,8 +192,18 @@ function Addon:PruneObsoleteSavedState()
     local removedCollapsed = 0
 
     if type(db.checked) == "table" then
+        -- Only prune a checkmark when its whole *section* is gone. Item IDs
+        -- are hashed from their exact text (scripts/sheet_to_lua.py), so a
+        -- pure wording tweak upstream (typo fix, rephrasing) regenerates a
+        -- new ID for that item alone -- pruning on validItemKeys here would
+        -- silently wipe the player's checkmark for it even though nothing
+        -- meaningful changed. Leaving those per-item entries orphaned costs
+        -- a negligible amount of SavedVariables space and avoids that data
+        -- loss; a stale entry only disappears once its whole section does.
         for k in pairs(db.checked) do
-            if not validItemKeys[k] then
+            local colonPos = string.find(k, ":", 1, true)
+            local sectionId = colonPos and string.sub(k, 1, colonPos - 1) or k
+            if not validSections[sectionId] then
                 db.checked[k] = nil
                 removedChecked = removedChecked + 1
             end

@@ -144,7 +144,7 @@ function Core.CompareVersions(versionA, versionB)
 end
 
 local LEGACY_PREFERENCE_KEYS = {
-    "hideCompletedSections", "showGreatVault", "showCurrency",
+    "showGreatVault", "showCurrency",
     "showChangeWeekBtn", "showIlvlRefBtn", "debug",
 }
 

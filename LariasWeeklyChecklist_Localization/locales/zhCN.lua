@@ -29,7 +29,6 @@ local STRINGS = {
 
 	-- Options tab
 	OPTIONS_HIDE_COMPLETED_TASKS = "隐藏已完成任务",
-	HIDE_FINISHED_WEEKS          = "隐藏已完成周",
 	OPTIONS_HIDE_GREAT_VAULT     = "隐藏宏伟宝库",
 	OPTIONS_HIDE_CURRENCY        = "隐藏货币",
 	OPTIONS_HIDE_CHANGE_WEEK_BTN = "隐藏周选择器",
@@ -44,7 +43,6 @@ local STRINGS = {
 	GEAR_LANG_BTN_SWITCH_TO_ENGLISH = "使用英文",
 	-- Options checkbox tooltips
 	OPTIONS_TOOLTIP_HIDE_COMPLETED_TASKS = "隐藏所有周中已勾选完成的任务。",
-	OPTIONS_TOOLTIP_HIDE_FINISHED_WEEKS  = "当某周所有任务都完成时，隐藏整个周区块。\n|cffaaaaaa（仅当“隐藏已完成任务”关闭时生效。）|r",
 	OPTIONS_TOOLTIP_HIDE_GREAT_VAULT     = "隐藏宏伟宝库进度追踪面板。",
 	OPTIONS_TOOLTIP_HIDE_CURRENCY        = "隐藏货币追踪面板。",
 	OPTIONS_TOOLTIP_HIDE_CHANGE_WEEK_BTN = "隐藏顶部的更换周按钮。",

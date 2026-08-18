@@ -41,19 +41,6 @@ Addon.OptionsPane.DISPLAY_ROWS = {
         onChange = function(v)
             local d = Addon:EnsurePrefs()
             d.hideCompletedTasks = v
-            if v then d.hideCompletedSections = true end
-            _applyAll()
-            if Addon.LayoutHeaderButtons then Addon:LayoutHeaderButtons() end
-            if Addon.RequestRefresh then Addon:RequestRefresh() else Addon:Refresh() end
-        end,
-    },
-    {
-        field    = "cbHideCompleted",
-        labelKey = "HIDE_FINISHED_WEEKS",           default = "Hide Finished Weeks",
-        tipKey   = "OPTIONS_TOOLTIP_HIDE_FINISHED_WEEKS",
-        getVal   = function(d) return d.hideCompletedSections and true or false end,
-        onChange = function(v)
-            Addon:EnsurePrefs().hideCompletedSections = v
             _applyAll()
             if Addon.LayoutHeaderButtons then Addon:LayoutHeaderButtons() end
             if Addon.RequestRefresh then Addon:RequestRefresh() else Addon:Refresh() end
@@ -194,7 +181,7 @@ function Addon.OptionsPane.BuildDisplay(parent, opts)
     -- Divider below reset button.
     Addon.Controls.NewDivider(parent, -(pad + btnH + 4), pad, pad)
 
-    -- 9 checkboxes: 5 in the left column, 4 in the right column.
+    -- 6 checkboxes: 5 in the left column, 1 in the right column.
     local COL_W = math.floor((width - 2 * pad) / 2)
     local cbsY  = pad + btnH + 4 + 1 + 6   -- px from parent top to first tile
 
@@ -259,8 +246,6 @@ function Addon.OptionsPane.BuildDisplay(parent, opts)
                 end
             end
         end
-        -- Dim "Hide Finished Weeks" while "Hide Completed Tasks" is active.
-        Addon.Controls.SetCheckEnabled(refs.cbHideCompleted, not d.hideCompletedTasks)
         -- Reset button label (localizable).
         if refs.resetBtn then
             refs.resetBtn:SetText((Addon.L or {}).RESET_BUTTON or "Reset List")

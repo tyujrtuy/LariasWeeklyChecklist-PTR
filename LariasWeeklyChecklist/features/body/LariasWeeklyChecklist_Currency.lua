@@ -1321,7 +1321,13 @@ local function GetCrestLines()
                 else
                     color = (held > 0) and COLORS.green or COLORS.dim
                 end
-                local tipBonus = math.max(0, held - earned)
+                -- Was `math.max(0, held - earned)` -- any held crests beyond
+                -- this week's earn count, regardless of source. That mislabels
+                -- carryover/other-source crests as "trade-up" even without the
+                -- unlock achievement. gained[i] (from ComputeCrestTradeup above)
+                -- already requires both the achievement (cache.unlocked[i-1])
+                -- and enough of the lower crest for a full batch, so reuse it.
+                local tipBonus = tonumber(gained[i]) or 0
                 local tipTbl   = BeginTooltipTable(_crestAmountTooltipPool, i)
                 if wkMax > 0 then
                     local earnable = math.max(0, wkMax - earned)
@@ -1378,8 +1384,10 @@ local function GetCrestLines()
     end
     return out, labelOut, valueOut, crestCount, convertTooltipTexts, amountTooltipTexts
 end
+-- Expose for tests.
+Addon._GetCrestLines = GetCrestLines
 
---  Catalyst 
+--  Catalyst
 -- Returns current qty and cap for Catalyst charges, trying currency ID then
 -- C_Catalyst APIs. Extracted so FillCurrencySnapshot can reuse the same logic
 -- as GetCatalystParts without duplicating the fallback chain.

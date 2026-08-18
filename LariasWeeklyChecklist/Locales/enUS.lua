@@ -23,7 +23,6 @@ local STRINGS = {
 
 	-- Options tab
 	OPTIONS_HIDE_COMPLETED_TASKS = "Hide Finished Tasks",
-	HIDE_FINISHED_WEEKS          = "Hide Finished Weeks",
 	OPTIONS_HIDE_GREAT_VAULT     = "Hide Great Vault",
 	OPTIONS_HIDE_CURRENCY        = "Hide Currency",
 	OPTIONS_HIDE_CHANGE_WEEK_BTN = "Hide Week Selector",
@@ -38,7 +37,6 @@ local STRINGS = {
 	GEAR_LANG_BTN_SWITCH_TO_ENGLISH = "Use English",
 	-- Options checkbox tooltips
 	OPTIONS_TOOLTIP_HIDE_COMPLETED_TASKS = "Hides individual checked-off tasks from all weeks.",
-	OPTIONS_TOOLTIP_HIDE_FINISHED_WEEKS  = "Hides entire week sections once all tasks in them are completed.\n|cffaaaaaa(Only active when Hide Finished Tasks is off.)|r",
 	OPTIONS_TOOLTIP_HIDE_GREAT_VAULT     = "Hides the Great Vault progress tracker panel.",
 	OPTIONS_TOOLTIP_HIDE_CURRENCY        = "Hides the currency tracker panel.",
 	OPTIONS_TOOLTIP_HIDE_CHANGE_WEEK_BTN = "Hides the Change Week button in the header.",

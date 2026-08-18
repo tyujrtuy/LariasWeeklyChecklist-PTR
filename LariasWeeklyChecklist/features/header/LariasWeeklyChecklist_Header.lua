@@ -251,6 +251,9 @@ function Addon:CreateHeader(frame)
             Addon:Refresh()
         end
     end
+    -- Expose so completing a section can trigger the same "change week" pick
+    -- programmatically instead of duplicating this logic.
+    Addon._HandlePick = HandlePick
 
     -- ── PopulateHeaderPicker ─────────────────────────────────────────────────
     local function PopulateHeaderPicker()
@@ -260,28 +263,13 @@ function Addon:CreateHeader(frame)
         local data = Addon.GetListData and Addon:GetListData() or {}
         local posY = -PICKER_PAD
 
-        local db0         = Addon:EnsureDB()
-        local storedStart = tostring(db0.startAtSectionId or "")
-        local currentId
-        if storedStart ~= "" then
-            currentId = storedStart
-        end
-        if not currentId then
-            -- No explicit pin: find the first incomplete week, matching the same
-            -- logic used by LayoutHeaderButtons_ so the ">" marker always lands
-            -- on the same week shown in the button label.
-            local order = Addon._order or {}
-            for i = 1, #order do
-                if Addon._IsSectionCompleteById and
-                   not Addon._IsSectionCompleteById(order[i], db0) then
-                    currentId = tostring(order[i])
-                    break
-                end
-            end
-            if not currentId and Addon._order and Addon._order[1] then
-                currentId = tostring(Addon._order[1])
-            end
-        end
+        local db0 = Addon:EnsureDB()
+        -- Same function the main list uses to decide which week's header
+        -- shows the change-week affordance -- keeps the ">" marker here in
+        -- agreement with what's actually clickable in the list (whatever
+        -- week is pinned takes the marker, complete or not).
+        local currentId = Addon._GetPickerSectionId and Addon._GetPickerSectionId(db0)
+        currentId = currentId and tostring(currentId) or nil
 
         if type(data) == "table" then
             for i = 1, #data do

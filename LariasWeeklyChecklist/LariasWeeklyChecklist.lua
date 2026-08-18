@@ -1356,7 +1356,13 @@ local function GetCurrentSectionId(db, ignoreStoredStart)
     if Addon._order then
         for i = 1, #Addon._order do
             local sid = Addon._order[i]
-            if HasAnySectionItemChecked(sid, db) then return sid end
+            -- Skip sections that are already fully complete: once a week is
+            -- finished it no longer counts as "actively being worked on", so
+            -- this must fall through to the first-incomplete-section pass
+            -- below instead of getting stuck re-expanding a finished week.
+            if HasAnySectionItemChecked(sid, db) and not IsSectionCompleteById(sid, db) then
+                return sid
+            end
         end
         for i = 1, #Addon._order do
             local sid = Addon._order[i]
@@ -1366,10 +1372,14 @@ local function GetCurrentSectionId(db, ignoreStoredStart)
     end
     return nil
 end
+-- Expose for tests.
+Addon._GetCurrentSectionId = GetCurrentSectionId
 
-local function GetFirstVisibleSectionId(db, prefs)
+-- Finished weeks are never hidden; this is purely "which section should
+-- auto-expand as the active one" -- the first incomplete section from the
+-- pinned start point forward (or from the very start if nothing is pinned).
+local function GetAutoExpandSectionId(db)
     db = db or Addon:EnsureDB()
-    prefs = prefs or Addon:EnsurePrefs()
 
     local startId = tostring(db.startAtSectionId or "")
     local startIndex = 1
@@ -1377,11 +1387,10 @@ local function GetFirstVisibleSectionId(db, prefs)
         startIndex = Addon._sectionsIndexById[startId]
     end
 
-    local hideDone = prefs.hideCompletedSections and true or false
     if Addon._order then
         for i = startIndex, #Addon._order do
             local sid = Addon._order[i]
-            if not (hideDone and IsSectionCompleteById(sid, db)) then
+            if not IsSectionCompleteById(sid, db) then
                 return sid
             end
         end
@@ -1389,6 +1398,22 @@ local function GetFirstVisibleSectionId(db, prefs)
 
     return nil
 end
+
+-- Which section's header shows the "change week" affordance (non-collapsible,
+-- opens the picker dropdown). Whatever week is explicitly pinned via
+-- startAtSectionId takes this over unconditionally, complete or not --
+-- picking an already-*finished* week to look back at it makes that week's
+-- header the one that opens the picker, same as picking any other week.
+-- Falls back to the real current week (actively-worked / first-incomplete)
+-- only when nothing is pinned. GetCurrentSectionId's own stored-start check
+-- already implements exactly this precedence, so just defer to it.
+-- Single source of truth for both the main list (ApplySectionVisuals) and
+-- the week-picker dropdown's ">" marker (Header.lua's PopulateHeaderPicker),
+-- so they can't disagree about which week "is current".
+local function GetPickerSectionId(db)
+    return GetCurrentSectionId(db or Addon:EnsureDB())
+end
+Addon._GetPickerSectionId = GetPickerSectionId
 
 -- UI pooling: we reuse section frames and checkboxes to avoid allocations during refresh.
 -- Must sit above third-party addon overlays (e.g. NaowhQOL UIWidgetPowerBarContainerFrame
@@ -1490,14 +1515,6 @@ local function AcquireSectionFrame()
     sectionFrame._title = title
     ApplySectionHeaderTint(sectionFrame)
 
-    -- Transparent hover zone covering only the title text (left of the expand button).
-    -- Used to scope the "click to change week" tooltip to just the label area.
-    local titleHover = CreateFrame("Frame", nil, sectionFrame)
-    titleHover:SetPoint("TOPLEFT",    header,    "TOPLEFT",    0,  0)
-    titleHover:SetPoint("BOTTOMRIGHT", expandBtn, "BOTTOMLEFT", -4, 0)
-    titleHover:EnableMouse(false)  -- enabled only when this is the picker section
-    sectionFrame._titleHover = titleHover
-
     return sectionFrame
 end
 
@@ -1530,11 +1547,6 @@ local function ReleaseSectionFrame(sectionFrame)
     sectionFrame._header:SetScript("OnClick", nil)
     sectionFrame._header:SetScript("OnEnter", nil)
     sectionFrame._header:SetScript("OnLeave", nil)
-    if sectionFrame._titleHover then
-        sectionFrame._titleHover:EnableMouse(false)
-        sectionFrame._titleHover:SetScript("OnEnter", nil)
-        sectionFrame._titleHover:SetScript("OnLeave", nil)
-    end
     if sectionFrame._expandBtn then
         sectionFrame._expandBtn:SetScript("OnClick", nil)
         sectionFrame._expandBtn:SetScript("OnEnter", nil)
@@ -1588,16 +1600,22 @@ local function ComputeHeaderHeight(sectionFrame, headerTextWidth)
     sectionFrame._headerBlockHeight = headerHeight + Addon.UI.headerBottomPad
 end
 
-local function LayoutItems(sectionFrame, collapsed, hideCompletedTasks)
+local function LayoutItems(sectionFrame, collapsed, hideCompletedTasks, sectionComplete)
     -- Stack item rows under the header; hide when collapsed.
     -- When the "hide completed tasks" pref is active, skip checked items from
     -- the layout entirely so the section shrinks to fit only visible rows.
     -- hideCompletedTasks is passed as a parameter (rather than read from prefs
     -- here) so callers can hoist the single EnsurePrefs() call and avoid
     -- repeating it for every section on each layout pass.
+    -- Once every item in a section is checked, hiding "completed" items would
+    -- hide *all* of them -- an expanded fully-done section would render
+    -- identically to a collapsed one (just the header, nothing underneath),
+    -- making the expand/collapse toggle look broken since there's never
+    -- anything visible either way. A fully-complete section always shows its
+    -- full item list when expanded, regardless of this pref.
     local posY        = -(sectionFrame._headerBlockHeight or (Addon.UI.headerMinH + Addon.UI.headerBottomPad))
     local totalHeight = 0
-    local hideChecked = not collapsed and hideCompletedTasks
+    local hideChecked = not collapsed and hideCompletedTasks and not sectionComplete
     local checkboxes  = sectionFrame._checkboxes
     for i = 1, #checkboxes do
         local checkbox = checkboxes[i]
@@ -1928,39 +1946,71 @@ local function OnCheckboxClick(selfBtn)
         if type(database.sectionCompleted) ~= "table" then database.sectionCompleted = {} end
         database.sectionCompleted[sectionId] = true
         SetSectionCollapsed(sectionId, true, database)
+
+        -- Finishing the section you're currently pinned to (e.g. it was
+        -- pinned to itself from an earlier click on its own header) should
+        -- hand control back to natural progression. Otherwise a stale pin
+        -- would keep UpdateSectionVisuals's "hide everything before the
+        -- pinned section" filter anchored on this now-finished week forever,
+        -- hiding earlier weeks that should be visible again.
+        if tostring(database.startAtSectionId or "") == tostring(sectionId) then
+            database.startAtSectionId = ""
+        end
     end
 
     -- Refresh the picker ">" marker whenever a section completes.
-    -- We no longer auto-advance startAtSectionId here: the picker fallback
-    -- already tracks the most-recently-active week via HasAnySectionItemChecked,
-    -- so advancing on completion would jump to the following week too soon.
+    local pickedNextWeek = false
     if secCompleteNow then
         if Addon._PopulateHeaderPicker then
             Addon._PopulateHeaderPicker()
         end
+
+        -- Use the same "which week gets the change-week affordance" logic as
+        -- the picker's ">" marker (GetPickerSectionId), not the plain
+        -- first-incomplete-in-order logic -- so completing a section lands
+        -- you on whatever week the header would already hand control to
+        -- (e.g. a later week you've actively started), matching what the
+        -- week selector itself considers "current".
+        local nextId = GetPickerSectionId(database)
+        if nextId and not IsSectionCompleteById(nextId, database) and Addon._HandlePick then
+            -- Literally trigger a change-week to that week -- the same
+            -- pin/expand/scroll-into-view/refresh that picking it from the
+            -- dropdown does -- instead of separately re-deriving "what
+            -- should the header/expand target be" here.
+            pickedNextWeek = true
+            Addon._HandlePick(nextId, Addon._scrollFrame)
+        elseif Addon.RequestRefresh then
+            -- Nothing left incomplete to advance to -- still need a resync
+            -- so ApplySectionVisuals reflects the fresh completion state.
+            Addon:RequestRefresh()
+        end
     end
 
-    local sectionFrame = Addon._activeSections[Addon._sectionsIndexById[sectionId]]
-    if not sectionFrame then return end
+    -- HandlePick above already queued a full resync that will re-derive and
+    -- apply this exact section's visuals (and, since nextId comes after it,
+    -- will hide it again via the pin filter). Doing that work here too would
+    -- be wasted, and would flash this section visible for one frame before
+    -- the deferred resync hides it again a moment later.
+    if not pickedNextWeek then
+        local sectionFrame = Addon._activeSections[Addon._sectionsIndexById[sectionId]]
+        if not sectionFrame then return end
 
-    local hideDone = prefs.hideCompletedSections and true or false
+        SetHeaderText(sectionFrame, sectionId, secCompleteNow)
+        ComputeHeaderHeight(sectionFrame, Addon.UI.itemTextWidth + Addon.UI.headerTextExtraW)
 
-    SetHeaderText(sectionFrame, sectionId, secCompleteNow)
-    ComputeHeaderHeight(sectionFrame, Addon.UI.itemTextWidth + Addon.UI.headerTextExtraW)
+        local collapsed = IsSectionCollapsed(sectionId, database) or false
+        if secCompleteNow then collapsed = true end
 
-    local collapsed = IsSectionCollapsed(sectionId, database) or false
-    if secCompleteNow then collapsed = true end
+        LayoutItems(sectionFrame, collapsed, prefs.hideCompletedTasks, secCompleteNow)
+        UpdateSectionHeight(sectionFrame, collapsed)
 
-    LayoutItems(sectionFrame, collapsed, prefs.hideCompletedTasks)
-    UpdateSectionHeight(sectionFrame, collapsed)
-
-    if hideDone and secCompleteNow then
-        sectionFrame:Hide()
-    else
+        -- Never hidden here just for being complete. It can still end up
+        -- hidden if a *different* prior pin filters it out -- reachable
+        -- again any time via change-week.
         sectionFrame:Show()
-    end
 
-    LayoutFrom(sectionFrame._index or 1)
+        LayoutFrom(sectionFrame._index or 1)
+    end
 
     -- After a section completes, recompute the change-week button label from
     -- scratch (LayoutHeaderButtons re-derives currentId from the DB so it
@@ -2110,18 +2160,28 @@ local function OnPickerSectionHeaderClick(self_)
     ToggleHeaderPickerFromAnchor(sectionFrame._expandBtn or sectionFrame._header)
 end
 
+local function OnPickerSectionTitleHoverEnter(self_)
+    Addon.AddonUtils.SetTooltip(self_, L.PICKER_HEADER_TOOLTIP or "Click to change week", "ANCHOR_BOTTOMLEFT")
+end
+
 local function OnSectionExpandButtonEnter(self_)
     GameTooltip:SetOwner(self_, "ANCHOR_BOTTOMLEFT")
     GameTooltip:SetText(L.CHANGE_WEEK_BUTTON or "Change Week", 1, 1, 1, 1, true)
     GameTooltip:Show()
 end
 
-local function OnSectionExpandButtonLeave()
+local function OnSectionExpandButtonLeave(self_)
     GameTooltip:Hide()
-end
-
-local function OnPickerSectionTitleHoverEnter(self_)
-    Addon.AddonUtils.SetTooltip(self_, L.PICKER_HEADER_TOOLTIP or "Click to change week", "ANCHOR_BOTTOMLEFT")
+    -- This button overlaps the right edge of the section header (both have
+    -- mouse enabled; WoW fires OnEnter/OnLeave per-frame-rect, not "topmost
+    -- only", so leaving this button's smaller rect doesn't mean the cursor
+    -- left the header's larger rect too). Without this, moving off the
+    -- button while still over the header leaves no tooltip shown until the
+    -- user exits the header entirely and re-enters it.
+    local header = self_ and self_._sectionFrame and self_._sectionFrame._header
+    if header and header.IsMouseOver and header:IsMouseOver() then
+        OnPickerSectionTitleHoverEnter(header)
+    end
 end
 
 local function SyncCheckboxesForSection(sectionFrame, sectionId, db)
@@ -2214,9 +2274,9 @@ local function SyncCheckboxesForSection(sectionFrame, sectionId, db)
     end
 end
 
--- precomputedCurrentId/precomputedFirstVisibleId: optional; pass from
--- ApplySectionVisuals to avoid walking _order once per section.
-UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedCurrentId, precomputedFirstVisibleId)
+-- precomputedFirstVisibleId: optional; pass from ApplySectionVisuals to
+-- avoid walking _order once per section.
+UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedFirstVisibleId)
     local database = Addon:EnsureDB()
     local prefs    = Addon:EnsurePrefs()
 
@@ -2233,12 +2293,6 @@ UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedCurrentId, p
 
     local complete = IsSectionCompleteById(sectionId, database)
 
-    local hideDone = prefs.hideCompletedSections and true or false
-    if hideDone and complete then
-        sectionFrame:Hide()
-        return
-    end
-
     sectionFrame:Show()
 
     ApplySectionHeaderTint(sectionFrame)
@@ -2246,7 +2300,7 @@ UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedCurrentId, p
     -- Only auto-collapse a completed section when the user has NOT explicitly
     -- expanded it (tracked via _userExpandedCompleted set in OnHeaderClick).
     local userExpanded = Addon._userExpandedCompleted and Addon._userExpandedCompleted[sectionId]
-    local isFirstVisible = tostring(sectionId) == tostring(precomputedFirstVisibleId or GetFirstVisibleSectionId(database, prefs) or "")
+    local isFirstVisible = tostring(sectionId) == tostring(precomputedFirstVisibleId or GetAutoExpandSectionId(database) or "")
     if complete and not userExpanded and not isFirstVisible then
         SetSectionCollapsed(sectionId, true, database)
     end
@@ -2268,19 +2322,14 @@ UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedCurrentId, p
     elseif explicitlySet then
         collapsed = database.collapsedSections[sectionId] == true
     else
-        -- First open: collapse everything except the current section.
-        -- Prefer the currently-selected (startAt) week if it makes the
-        -- section the first visible one; fall back to the computed current
-        -- section otherwise.  Use precomputedCurrentId when available to
-        -- avoid re-walking _order once per section.
-        local currentId = precomputedCurrentId or GetCurrentSectionId(database)
-        local startId = tostring(database.startAtSectionId or "")
-        local firstVisibleId = currentId
-        if startId ~= "" and Addon._sectionsIndexById and Addon._sectionsIndexById[startId] then
-            firstVisibleId = startId
-        end
-        collapsed = (tostring(sectionId) ~= tostring(firstVisibleId or ""))
-        SetSectionCollapsed(sectionId, collapsed, database)
+        -- Never-touched, incomplete section that isn't the auto-expand
+        -- target (isFirstVisible above already covers that case) -- default
+        -- it collapsed. Reaching here means neither of the two branches
+        -- above set an explicit collapsed value: not the auto-expand
+        -- target, and complete-but-userExpanded implies explicitlySet
+        -- (they're always written together), so this is genuinely new.
+        collapsed = true
+        SetSectionCollapsed(sectionId, true, database)
     end
 
     local checkedMap = database.checked
@@ -2293,7 +2342,7 @@ UpdateSectionVisuals = function(sectionFrame, sectionId, precomputedCurrentId, p
         end
     end
 
-    LayoutItems(sectionFrame, collapsed, prefs.hideCompletedTasks)
+    LayoutItems(sectionFrame, collapsed, prefs.hideCompletedTasks, complete)
     UpdateSectionHeight(sectionFrame, collapsed)
 
     -- Sync the expand button's visual state.
@@ -2358,14 +2407,9 @@ end
 local function ApplySectionVisuals(want, haveBefore, dataChanged, database, child)
     local needCheckboxResync = dataChanged
     -- Pre-compute once so UpdateSectionVisuals doesn't re-walk _order N times
-    -- on the first open (when all collapsedSections entries are nil).
-    local currentSectionId = GetCurrentSectionId(database)
-    local firstVisibleSectionId = GetFirstVisibleSectionId(database, Addon:EnsurePrefs())
-    local pickerSectionId = currentSectionId
-    local startId = tostring(database.startAtSectionId or "")
-    if startId ~= "" and Addon._sectionsIndexById and Addon._sectionsIndexById[startId] then
-        pickerSectionId = startId
-    end
+    -- per section.
+    local firstVisibleSectionId = GetAutoExpandSectionId(database)
+    local pickerSectionId = GetPickerSectionId(database)
     for i = 1, want do
         local sectionId    = Addon._order[i]
         local sectionFrame = Addon._activeSections[i]
@@ -2407,12 +2451,15 @@ local function ApplySectionVisuals(want, haveBefore, dataChanged, database, chil
         if isCurrentSec then
             -- Current/topmost week: clicking the section title opens the week picker.
             -- Expand/collapse still works via the expand button on the right.
+            -- Bind hover directly to the header button itself (not a separate
+            -- overlay frame): the header sits above everything else in its
+            -- rect except the expand button, so an overlay frame at the same
+            -- level as the section never actually receives OnEnter -- binding
+            -- here is what makes the tooltip track the whole header instead
+            -- of only showing over the button.
             sectionFrame._header:SetScript("OnClick", OnPickerSectionHeaderClick)
-            if sectionFrame._titleHover then
-                sectionFrame._titleHover:EnableMouse(true)
-                sectionFrame._titleHover:SetScript("OnEnter", OnPickerSectionTitleHoverEnter)
-                sectionFrame._titleHover:SetScript("OnLeave", Addon.AddonUtils.HideTooltip)
-            end
+            sectionFrame._header:SetScript("OnEnter", OnPickerSectionTitleHoverEnter)
+            sectionFrame._header:SetScript("OnLeave", Addon.AddonUtils.HideTooltip)
             -- Replace the right-side expand button behaviour with a week-picker
             -- toggle for the current section. Keep the visual glyph in sync
             -- with the picker (up when open, down when closed).
@@ -2454,14 +2501,11 @@ local function ApplySectionVisuals(want, haveBefore, dataChanged, database, chil
             end
         else
             sectionFrame._header:SetScript("OnClick", OnHeaderClick)
-            if sectionFrame._titleHover then
-                sectionFrame._titleHover:EnableMouse(false)
-                sectionFrame._titleHover:SetScript("OnEnter", nil)
-                sectionFrame._titleHover:SetScript("OnLeave", nil)
-            end
+            sectionFrame._header:SetScript("OnEnter", nil)
+            sectionFrame._header:SetScript("OnLeave", nil)
         end
 
-        UpdateSectionVisuals(sectionFrame, sectionId, currentSectionId, firstVisibleSectionId)
+        UpdateSectionVisuals(sectionFrame, sectionId, firstVisibleSectionId)
     end
 end
 
