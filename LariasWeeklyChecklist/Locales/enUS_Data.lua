@@ -5,7 +5,7 @@ NOTE: This is the canonical enUS dataset; other locales must keep IDs identical
 so completion tracking stays consistent across locales.
 ]]
 
--- @sheet-version: 10
+-- @sheet-version: 11
 
 local LOCALE = "enUS"
 
@@ -17,13 +17,13 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "10"
+reg.sheet_version = "11"
 
 local DATASET = {
 
     {
-        id = "46b99ca0",
-        title = "Week 0 - Aug 11 - Pre-Season - CURRENT WEEK",
+        id = "21fa8e1b",
+        title = "Week 0 - Aug 11 - Pre-Season",
         items = {
             { id = "1fb55f58", text = "You can freely spend any champion and below crests at any time." },
             { id = "e3f0c2bd", text = "Complete the new zone intro campaign." },
@@ -40,12 +40,13 @@ local DATASET = {
         },
     },
     {
-        id = "ebc836d8",
-        title = "Week 1 - Aug 18 - Season Starts - UPDATED",
+        id = "29f0211e",
+        title = "Week 1 - Aug 18 - Season Starts - UPDATED - Current Week",
         items = {
             { id = "ed3ed033", text = "Take a tier piece if your guild doesn't do splits. Take a socket if your guild does splits. WARNING: THIS MAY GIVE YOU A KEY - MAKE SURE TO GET A +10 KEY BEFORE TAKING AN ITEM." },
             { id = "1fb55f58", text = "You can freely spend any champion and below crests at any time." },
             { id = "1ad52558", text = "Do LFR for tier pieces." },
+            { id = "bada8c98", text = "Start the Season 2 Bonus roll questline in the Voidstorm" },
             { id = "479fea56", text = "Complete 2x weekly spark quests for a total of 4" },
             { id = "87bf0a54", text = "Complete ?? Azta'rec for 60 uncapped hero Crests and 30 uncapped Myth Crests. Confirmed for S2" },
             { id = "d786018f", text = "If you have a premade group, you can get a +10 key for everyone. You can have a team of 4 alts + 1 main, get a key from the lady you downgrade your key at, level it up to +11 then run it on mains and everyone gets a +10. There is a better way, though, that worked in S1: fill your inventory completely with items (blacksmith hammers are a good choice). Get one person to get a +2 and push it to an 11 without anyone else looting the chest. The loot will be mailed to you. Once you get to a +11, unclog your inventory and then loot the +11." },

@@ -5,7 +5,7 @@ NOTE: IDs are kept identical to the current enUS dataset so completion tracking
 stays consistent across locales.
 ]]
 
--- @sheet-version: 10
+-- @sheet-version: 11
 
 local LOCALE = "zhCN"
 
@@ -17,13 +17,13 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "10"
+reg.sheet_version = "11"
 
 local DATASET = {
 
     {
-        id = "46b99ca0",
-        title = "第0周 - 8月13日 - 季前 - 本周",
+        id = "21fa8e1b",
+        title = "第0周 - 8月13日 - 季前",
         items = {
             { id = "1fb55f58", text = "勇士及以下纹章可以随时自由使用。" },
             { id = "e3f0c2bd", text = "完成新区域引导战役" },
@@ -40,12 +40,13 @@ local DATASET = {
         },
     },
     {
-        id = "ebc836d8",
-        title = "第1周 - 8月20日 - 赛季开始 - 已更新",
+        id = "29f0211e",
+        title = "第1周 - 8月20日 - 赛季开始 - 已更新 - 本周",
         items = {
             { id = "ed3ed033", text = "如果公会不分团就拿套装部件；如果分团就拿镶孔。警告：这可能会给你一个钥石——拿装备前务必先拿到 +10 钥石。" },
             { id = "1fb55f58", text = "勇士及以下纹章可以随时自由使用。" },
             { id = "1ad52558", text = "打随机团队获取套装部件。" },
+            { id = "bada8c98", text = "在虚影风暴开启第 2 赛季额外掷骰任务线" },
             { id = "479fea56", text = "完成两次每周火花任务，总计4个火花。" },
             { id = "87bf0a54", text = "完成 ?? 阿兹塔雷克，获得60个无上限英雄纹章和30个无上限神话纹章。第2赛季已确认。" },
             { id = "d786018f", text = "如果你有预创建队伍，可以让每个人都拿到 +10 钥石。可以让 4 个小号 + 1 个大号组队，在降钥石的女 NPC 那里拿一个钥石，升到 +11 后给大号打，每个人都能拿到 +10。不过有一个更好的办法，第一赛季验证过：把背包完全装满物品（铁匠锤子是不错的选择）。让一个人拿 +2 钥匙并升到 +11，期间其他人不要拾取宝箱。战利品会邮寄给你。到了 +11 后，清空背包再拾取 +11 宝箱。" },
