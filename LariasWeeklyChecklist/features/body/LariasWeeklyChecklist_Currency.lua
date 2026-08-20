@@ -582,10 +582,7 @@ local function GetSparksParts()
     local tooltip = (#tipLines > 0) and tipLines or nil
 
     if cap > 0 then
-        local sparkColor = (earned >= cap) and COLORS.green
-                        or (earned > 0) and COLORS.yellow
-                        or COLORS.dim
-        return label, ColorWrap(sparkColor, tostring(held)), tooltip
+        return label, ColorWrap(ColorForXY(earned, cap), tostring(held)), tooltip
     end
     -- cap unavailable — show quantity in normal text color (no false green "done" signal)
     local th = Addon.THEME and Addon.THEME.text
@@ -644,9 +641,12 @@ local function GetCofferKeysParts()
         }
     end
 
-    local valColor = (total > 0 and current >= total) and COLORS.green
-        or (balance > 0 and COLORS.yellow)
-        or COLORS.red
+    local valColor
+    if total > 0 then
+        valColor = ColorForXY(current, total)
+    else
+        valColor = (balance > 0) and COLORS.yellow or COLORS.red
+    end
     return label, ColorWrap(valColor, tostring(balance)), (#tipLines > 0) and tipLines or nil
 end
 
@@ -1314,10 +1314,12 @@ local function GetCrestLines()
                 local wkMax  = cache.weeklyMax[i] or 0  -- weekly soft cap
                 local held   = cache.cur[i]       or 0  -- wallet balance
                 -- Main: current held amount; tooltip breaks out earned and remaining.
+                -- Color reflects this week's earn progress toward the cap, not the
+                -- held total, so a full bank from a prior week doesn't read as "done".
                 local xy    = tostring(held)
                 local color
                 if wkMax > 0 then
-                    color = (earned >= wkMax) and COLORS.dim or (cache.unlocked[i] and COLORS.green or COLORS.red)
+                    color = ColorForXY(earned, wkMax)
                 else
                     color = (held > 0) and COLORS.green or COLORS.dim
                 end
@@ -1436,9 +1438,7 @@ local function GetCatalystParts()
         end
         catTip = FinishTooltipTable(catTip)
     end
-    local catValColor = (cap and cap > 0 and cur >= cap) and COLORS.green
-                     or (cur > 0)                         and COLORS.yellow
-                     or COLORS.red
+    local catValColor = ColorForXY(cur, cap or 0)
     return ColorWrap(catColor, catName), ColorWrap(catValColor, ("%d"):format(cur)), catTip
 end
 
@@ -1453,11 +1453,12 @@ local function GetGenericCurrencyParts(id)
     local held    = (rawInfo and tonumber(rawInfo.quantity)) or 0
     local name = GetCurrencyName(id) or tostring(id)
     local lbl = ColorWrap(GetCurrencyQualityColor(id), name)
-    local canEarnMore = cap > 0 and earned < cap
-    local miscColor = canEarnMore and COLORS.yellow
-                   or (cap > 0 and earned >= cap) and COLORS.green
-                   or (held > 0)                  and COLORS.yellow
-                   or COLORS.dim
+    local miscColor
+    if cap > 0 then
+        miscColor = ColorForXY(earned, cap)
+    else
+        miscColor = (held > 0) and COLORS.yellow or COLORS.dim
+    end
     local val = ColorWrap(miscColor, tostring(held))
     local miscTip
     if cap > 0 then
@@ -1788,8 +1789,11 @@ function Addon:RenderCurrencySnapshotRow(row)
         local lbl   = ColorWrap(GetCurrencyQualityColor(id), tostring(name))
         local cap, hasCurrentCap = GetCurrentCurrencySnapshotCap(SNAP_TYPES.CREST, id)
         qty = ClampSnapshotAmountToCurrentCap(qty, cap, hasCurrentCap)
+        local earned = ClampSnapshotAmountToCurrentCap(tonumber(row.earned) or qty, cap, hasCurrentCap)
+        -- Text shows held (current) crests; color reflects this week's earn
+        -- progress toward the cap, matching the live crest row.
         if cap > 0 then
-            return lbl, ColorWrap(ColorForXY(qty, cap), tostring(qty))
+            return lbl, ColorWrap(ColorForXY(earned, cap), tostring(qty))
         end
         return lbl, ColorWrap((qty <= 0) and COLORS.dim or COLORS.green, tostring(qty))
     elseif t == "catalyst" then
@@ -1813,10 +1817,7 @@ function Addon:RenderCurrencySnapshotRow(row)
         qty = ClampSnapshotAmountToCurrentCap(qty, cap, hasCurrentCap)
         local held = ClampSnapshotAmountToCurrentCap(tonumber(row.held) or qty, cap, hasCurrentCap)
         if cap > 0 then
-            local color = (qty >= cap) and COLORS.green
-                       or (qty > 0) and COLORS.yellow
-                       or COLORS.dim
-            return lbl, ColorWrap(color, tostring(held))
+            return lbl, ColorWrap(ColorForXY(qty, cap), tostring(held))
         end
         return lbl, ColorWrap((qty <= 0) and COLORS.dim or COLORS.yellow, tostring(held))
     elseif t == "cofferkeys" then
@@ -1831,10 +1832,7 @@ function Addon:RenderCurrencySnapshotRow(row)
         local lbl = ColorWrap(GetCurrencyQualityColor(id), name)
         local displayHeld = ClampSnapshotAmountToCurrentCap(held or qty, cap, hasCurrentCap)
         if cap > 0 then
-            local color = (qty >= cap) and COLORS.green
-                or (displayHeld > 0 and COLORS.yellow)
-                or COLORS.red
-            return lbl, ColorWrap(color, tostring(displayHeld))
+            return lbl, ColorWrap(ColorForXY(qty, cap), tostring(displayHeld))
         end
         return lbl, ColorWrap((displayHeld <= 0) and COLORS.red or COLORS.yellow, tostring(displayHeld))
     elseif t == "misc" then
@@ -1846,8 +1844,7 @@ function Addon:RenderCurrencySnapshotRow(row)
         qty = ClampSnapshotAmountToCurrentCap(qty, cap, hasCurrentCap)
         local held = ClampSnapshotAmountToCurrentCap(tonumber(row.held) or qty, cap, hasCurrentCap)
         if cap > 0 then
-            local color = (qty < cap) and COLORS.yellow or COLORS.green
-            return lbl, ColorWrap(color, ("%d"):format(held))
+            return lbl, ColorWrap(ColorForXY(qty, cap), ("%d"):format(held))
         end
         return lbl, ColorWrap((held <= 0) and COLORS.dim or COLORS.yellow, tostring(held))
     elseif t == "quest" then

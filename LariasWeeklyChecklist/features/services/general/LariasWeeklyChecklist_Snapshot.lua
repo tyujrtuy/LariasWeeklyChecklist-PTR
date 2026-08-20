@@ -355,6 +355,33 @@ function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
         snap.keystone = snap.keystone or {}
         snap.keystone.level = tonumber(ksLevel) or 0
         snap.keystone.name  = ksName or ""
+
+        -- Weekly/season run counts: number of Mythic+ dungeons completed since
+        -- the weekly reset, and since the season started. C_MythicPlus.GetRunHistory's
+        -- real signature is (includePreviousWeeks, includeIncompleteRuns,
+        -- currentSeasonOnly) -- there is no "thisSeason" field on each entry,
+        -- only "thisWeek". So: ask for every week this season (includePreviousWeeks),
+        -- completed runs only (includeIncompleteRuns = false, so aborted/failed
+        -- keys don't inflate the count), scoped to the current season
+        -- (currentSeasonOnly). The season total is then just the number of runs
+        -- returned; the weekly total is the subset flagged thisWeek.
+        local weeklyRuns, seasonRuns = 0, 0
+        if API.MythicPlus and type(API.MythicPlus.GetRunHistory) == "function" then
+            local ok, runs = pcall(API.MythicPlus.GetRunHistory, true, false, true)
+            if ok and type(runs) == "table" then
+                for i = 1, #runs do
+                    local run = runs[i]
+                    if run then
+                        seasonRuns = seasonRuns + 1
+                        if run.thisWeek then
+                            weeklyRuns = weeklyRuns + 1
+                        end
+                    end
+                end
+            end
+        end
+        snap.keystone.weeklyRuns = weeklyRuns
+        snap.keystone.seasonRuns = seasonRuns
     end
     end
 

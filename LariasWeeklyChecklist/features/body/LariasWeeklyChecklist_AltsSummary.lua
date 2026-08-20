@@ -35,6 +35,24 @@ local CREST_ABBREV_KEYS = {
     "ILVLREF_CREST_ADV", "ILVLREF_CREST_VET", "ILVLREF_CREST_CHAMP",
     "ILVLREF_CREST_HERO", "ILVLREF_CREST_MYTH",
 }
+-- Midnight Season 2 (patch 12.1) Mythic+ dungeon pool -> shortform, keyed on
+-- the English name C_ChallengeMode.GetMapUIInfo returns (the same string the
+-- keystone snapshot already captures as ks.name). Values are locale keys
+-- (matching the CREST_ABBREV_KEYS pattern) so the localization companion can
+-- override the shortform text itself, read at call time since the companion
+-- loads after this file. Non-English clients and dungeons outside this pool
+-- fall back to the old first-word abbreviation in RenderKeystoneCell. Update
+-- this table when the season's dungeon rotation changes.
+local SEASON2_DUNGEON_ABBREV_KEYS = {
+    ["Den of Nalorakk"]      = "ALT_SUMMARY_DUNGEON_DEN",
+    ["Murder Row"]           = "ALT_SUMMARY_DUNGEON_MURDER",
+    ["The Blinding Vale"]    = "ALT_SUMMARY_DUNGEON_VALE",
+    ["Altar of Fangs"]       = "ALT_SUMMARY_DUNGEON_ALTAR",
+    ["Voidscar Arena"]       = "ALT_SUMMARY_DUNGEON_ARENA",
+    ["King's Rest"]          = "ALT_SUMMARY_DUNGEON_REST",
+    ["Temple of Sethraliss"] = "ALT_SUMMARY_DUNGEON_TEMPLE",
+    ["Ruby Life Pools"]      = "ALT_SUMMARY_DUNGEON_POOLS",
+}
 -- GV row names are read lazily so the localization companion's L values are
 -- available by the time PopulateSummary runs (they wouldn't be at file-load time).
 local function GetGVName(gi)
@@ -581,6 +599,12 @@ local function BuildAltSummaryRowKey(row)
     end
     if row.type == "keystone" then
         return "keystone"
+    end
+    if row.type == "weeklykeys" then
+        return "weeklykeys"
+    end
+    if row.type == "seasonkeys" then
+        return "seasonkeys"
     end
     return tostring(row.type or "row") .. ":" .. tostring(row.label or "")
 end
@@ -1168,6 +1192,10 @@ local function BuildRowDefs(tracking, LAYOUT, chars)
         end
     end
 
+    addSec("stats", L.ALT_SUMMARY_SECTION_STATS or "Stats", nil)
+    addRow("weeklykeys", L.ALT_SUMMARY_KEYS_THIS_WEEK or "Keys This Week", {})
+    addRow("seasonkeys", L.ALT_SUMMARY_KEYS_THIS_SEASON or "Keys This Season", {})
+
     local sectionOrderMap = BuildSectionOrderMap(Addon.GetAltSummarySectionOrder and Addon:GetAltSummarySectionOrder() or {})
     table.sort(sections, function(a, b)
         local ai = sectionOrderMap[a.key]
@@ -1357,15 +1385,15 @@ end
 --   alpha  : base alpha for the character column
 --   th     : Addon.THEME.text {r,g,b}
 
--- Returns (r,g,b) for a crest cell based on weekly earned vs cap.
--- Green when uncapped or plenty of room; yellow when close; red when fully capped.
+-- Returns (r,g,b) for a crest cell based on weekly earned vs cap: green at
+-- cap, yellow from 50% up, red below 50%. Same rule as every other currency.
+-- A tier with no weekly cap yet (not earnable, cap<=0) stays green rather
+-- than falling into ColorForXYRGB's have-none/have-some fallback, matching
+-- every other crest color path in the codebase (GetCrestLines,
+-- RenderCurrencySnapshotRow, GetGenericCurrencyParts).
 local function CrestProgressColor(earned, cap)
-    if cap <= 0 then return 0.3, 1.0, 0.3 end  -- uncapped → always green
-    local pct = earned / cap
-    if     pct >= 1.0 then return 1.0, 0.4,  0.4   -- at cap → red
-    elseif pct >= 0.6 then return 1.0, 0.82, 0.0   -- close   → yellow
-    else                   return 0.3, 1.0,  0.3   -- room    → green
-    end
+    if cap <= 0 then return 0.3, 1.0, 0.3 end
+    return AU.ColorForXYRGB(earned, cap)
 end
 
 local function RenderCrestCell(cell, row, sd, noSnap, alpha, _th, crestIDs, highestTuIdx)
@@ -1379,11 +1407,12 @@ local function RenderCrestCell(cell, row, sd, noSnap, alpha, _th, crestIDs, high
         SetPlaceholder(cell, _th, alpha * A_DIM)
         cell._tu:SetText("")
     else
-        -- Show current held crests (wallet balance) vs weekly cap.
-        local baseStr = (cap > 0) and (qty .. "/" .. cap) or tostring(qty)
+        -- Show crests acquired this week vs the weekly cap.
+        local baseStr = (cap > 0) and (earned .. "/" .. cap) or tostring(qty)
+        local shownVal = (cap > 0) and earned or qty
         cell._fs:SetText(baseStr)
         local pr, pg, pb = CrestProgressColor(earned, cap)
-        cell._fs:SetTextColor(pr, pg, pb, alpha * (qty > 0 and A_FULL or A_EMPTY))
+        cell._fs:SetTextColor(pr, pg, pb, alpha * (shownVal > 0 and A_FULL or A_EMPTY))
         if tuAmt > 0 then
             cell._tu:SetText("+" .. tuAmt)
             cell._tu:SetTextColor(0.30, 0.65, 1.0, alpha)
@@ -1451,21 +1480,29 @@ local function RenderCrestCell(cell, row, sd, noSnap, alpha, _th, crestIDs, high
 end
 
 local function RenderCatalystCell(cell, row, sd, noSnap, alpha, th)
-    local catQty = sd.catQty
+    local catQty, catCap = sd.catQty, sd.catCap
     if noSnap then
         SetPlaceholder(cell, th, alpha * A_DIM)
+    elseif catCap > 0 then
+        cell._fs:SetText(catQty .. "/" .. catCap)
+        local pr, pg, pb = AU.ColorForXYRGB(catQty, catCap)
+        cell._fs:SetTextColor(pr, pg, pb, alpha)
     else
         cell._fs:SetText(tostring(catQty))
         cell._fs:SetTextColor(th.r, th.g, th.b, alpha * (catQty > 0 and A_FULL or A_DIM))
     end
-    local _qty = catQty
+    local _qty, _cap = catQty, catCap
     if noSnap then
         cell:SetScript("OnEnter", nil)
     else
         cell:SetScript("OnEnter", function(s_)
             GameTooltip:SetOwner(s_, "ANCHOR_RIGHT")
             GameTooltip:SetText(L.TRACKING_CATALYST_CHARGES or "Catalyst Charges", 1, 0.82, 0)
-            GameTooltip:AddLine((L.TRACKING_CHARGES_FMT or "Charges: %d"):format(_qty), 1, 1, 1)
+            if _cap > 0 then
+                GameTooltip:AddLine((L.TRACKING_CHARGES_XY_FMT or "Charges: %d/%d"):format(_qty, _cap), 1, 1, 1)
+            else
+                GameTooltip:AddLine((L.TRACKING_CHARGES_FMT or "Charges: %d"):format(_qty), 1, 1, 1)
+            end
             GameTooltip:Show()
         end)
     end
@@ -1473,12 +1510,7 @@ end
 
 local function RenderSparksCell(cell, row, sd, noSnap, alpha, th)
     local sprkQty, sprkCap = sd.sprkQty, sd.sprkCap
-    local sqr, sqg, sqb = 0.64, 0.21, 0.93
-    if sprkCap > 0 and sprkQty >= sprkCap then
-        sqr, sqg, sqb = 0.3, 1.0, 0.3
-    elseif sprkQty > 0 then
-        sqr, sqg, sqb = 1.0, 0.82, 0.0
-    end
+    local sqr, sqg, sqb = AU.ColorForXYRGB(sprkQty, sprkCap)
     local sprkStr = (sprkCap > 0) and (sprkQty .. "/" .. sprkCap) or tostring(sprkQty)
     if noSnap then
         SetPlaceholder(cell, th, alpha * A_DIM)
@@ -1511,11 +1543,8 @@ local function RenderMiscCell(cell, row, sd, noSnap, alpha, th)
         SetPlaceholder(cell, th, alpha * A_DIM)
     elseif mCap > 0 then
         cell._fs:SetText(mQty .. "/" .. mCap)
-        local pct = mQty / mCap
-        if     pct >= 1.0 then cell._fs:SetTextColor(0.3,  1.0,  0.3,  alpha)
-        elseif pct >= 0.5 then cell._fs:SetTextColor(1.0,  0.82, 0.0,  alpha)
-        else                    cell._fs:SetTextColor(th.r, th.g, th.b, alpha)
-        end
+        local pr, pg, pb = AU.ColorForXYRGB(mQty, mCap)
+        cell._fs:SetTextColor(pr, pg, pb, alpha)
     else
         cell._fs:SetText(tostring(mQty))
         cell._fs:SetTextColor(th.r, th.g, th.b, alpha * (mQty > 0 and A_FULL or A_DIM))
@@ -1547,14 +1576,10 @@ local function RenderCofferKeysCell(cell, row, sd, noSnap, alpha, th)
         return
     end
     if keysCap > 0 then
-        cell._fs:SetText(keysHeld .. "/" .. keysCap)
-        if keysQty >= keysCap then
-            cell._fs:SetTextColor(0.3, 1.0, 0.3, alpha)
-        elseif keysHeld > 0 then
-            cell._fs:SetTextColor(1.0, 0.82, 0.0, alpha)
-        else
-            cell._fs:SetTextColor(th.r, th.g, th.b, alpha)
-        end
+        -- Show keys acquired this week vs the weekly cap (matches every other currency).
+        cell._fs:SetText(keysQty .. "/" .. keysCap)
+        local pr, pg, pb = AU.ColorForXYRGB(keysQty, keysCap)
+        cell._fs:SetTextColor(pr, pg, pb, alpha)
     else
         cell._fs:SetText(tostring(keysHeld))
         cell._fs:SetTextColor(th.r, th.g, th.b, alpha * (keysHeld > 0 and A_FULL or A_DIM))
@@ -1678,8 +1703,9 @@ local function RenderKeystoneCell(cell, row, snap, noSnap, alpha, th)
         SetPlaceholder(cell, th, alpha * A_DIM)
         return
     end
-    local name    = (ks.name and ks.name ~= "") and ks.name or nil
-    local abbrev  = name and (name:match("^%S+") or name) or nil
+    local name       = (ks.name and ks.name ~= "") and ks.name or nil
+    local abbrevKey  = name and SEASON2_DUNGEON_ABBREV_KEYS[name]
+    local abbrev     = (abbrevKey and L[abbrevKey]) or (name and (name:match("^%S+") or name)) or nil
     local display = abbrev
         and (L.ALT_SUMMARY_KEYSTONE_LEVEL_FMT or "+%d %s"):format(level, abbrev)
         or  (L.ALT_SUMMARY_KEYSTONE_LEVEL_SHORT_FMT or "+%d"):format(level)
@@ -1702,6 +1728,40 @@ local function RenderKeystoneCell(cell, row, snap, noSnap, alpha, th)
         end
         GameTooltip:Show()
     end)
+end
+
+-- Stats: how many Mythic+ dungeons this character has completed, both since
+-- the weekly reset and season-to-date. Lives in its own section below Great
+-- Vault (previously shown only in the keystone tooltip). Both rows share
+-- this renderer -- only the snapshot field and tooltip strings differ.
+local function RenderKeystoneRunCountCell(cell, snap, noSnap, alpha, th, field, titleKey, titleFallback, fmtKey, fmtFallback)
+    local ks = snap and snap.keystone
+    local count = ks and tonumber(ks[field])
+    if noSnap or not ks or count == nil then
+        SetPlaceholder(cell, th, alpha * A_DIM)
+        return
+    end
+    cell._fs:SetText(tostring(count))
+    cell._fs:SetTextColor(th.r, th.g, th.b, alpha * (count > 0 and A_FULL or A_EMPTY))
+    local _count = count
+    cell:SetScript("OnEnter", function(s_)
+        GameTooltip:SetOwner(s_, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L[titleKey] or titleFallback, 1, 0.82, 0)
+        GameTooltip:AddLine((L[fmtKey] or fmtFallback):format(_count), 1, 1, 1)
+        GameTooltip:Show()
+    end)
+end
+
+local function RenderWeeklyKeysCell(cell, row, snap, noSnap, alpha, th)
+    RenderKeystoneRunCountCell(cell, snap, noSnap, alpha, th, "weeklyRuns",
+        "ALT_SUMMARY_KEYS_THIS_WEEK", "Keys This Week",
+        "ALT_SUMMARY_KEYS_THIS_WEEK_FMT", "Keys this week: %d")
+end
+
+local function RenderSeasonKeysCell(cell, row, snap, noSnap, alpha, th)
+    RenderKeystoneRunCountCell(cell, snap, noSnap, alpha, th, "seasonRuns",
+        "ALT_SUMMARY_KEYS_THIS_SEASON", "Keys This Season",
+        "ALT_SUMMARY_KEYS_THIS_SEASON_FMT", "Keys this season: %d")
 end
 
 local function FormatAverageItemLevel(ilvl)
@@ -1923,6 +1983,40 @@ local function RenderGVCell(cell, row, snap, noSnap, alpha)
         end
         GameTooltip:Show()
     end)
+end
+
+-- Dispatches one data cell to its type-specific renderer. Pulled out of
+-- PopulateSummary (a large closure already near Lua 5.1's 60-upvalue-per-
+-- function limit) so the eleven Render*Cell functions count as upvalues of
+-- this small function instead of that one.
+local function RenderRowCell(rtype, cell, row, sd, snap, noSnap, alpha, th, char, crestIDs, highestTuIdx)
+    if rtype == "crest" then
+        RenderCrestCell(cell, row, sd, noSnap, alpha, th, crestIDs, highestTuIdx)
+    elseif rtype == "catalyst" then
+        RenderCatalystCell(cell, row, sd, noSnap, alpha, th)
+    elseif rtype == "sparks" then
+        RenderSparksCell(cell, row, sd, noSnap, alpha, th)
+    elseif rtype == "cofferkeys" then
+        RenderCofferKeysCell(cell, row, sd, noSnap, alpha, th)
+    elseif rtype == "misc" then
+        RenderMiscCell(cell, row, sd, noSnap, alpha, th)
+    elseif rtype == "quest" then
+        RenderQuestCell(cell, row, sd, noSnap, alpha, th)
+    elseif rtype == "checkitem" then
+        RenderChecklistItemCell(cell, row, char, alpha, th)
+    elseif rtype == "upgcost" then
+        RenderUpgradeCostCell(cell, row, snap, noSnap, alpha, th)
+    elseif rtype == "keystone" then
+        RenderKeystoneCell(cell, row, snap, noSnap, alpha, th)
+    elseif rtype == "gv" then
+        RenderGVCell(cell, row, snap, noSnap, alpha)
+    elseif rtype == "weeklykeys" then
+        RenderWeeklyKeysCell(cell, row, snap, noSnap, alpha, th)
+    elseif rtype == "seasonkeys" then
+        RenderSeasonKeysCell(cell, row, snap, noSnap, alpha, th)
+    elseif rtype == "weapupg" then
+        RenderWeapUpgCell(cell, row, sd, noSnap, alpha, th)
+    end
 end
 
 PopulateSummary = function(panel)
@@ -2818,29 +2912,7 @@ PopulateSummary = function(panel)
                 local alpha = char.alpha
                 local rtype = row.type
 
-                if rtype == "crest" then
-                    RenderCrestCell(cell, row, sd, noSnap, alpha, th, crestIDs, highestTuIdx)
-                elseif rtype == "catalyst" then
-                    RenderCatalystCell(cell, row, sd, noSnap, alpha, th)
-                elseif rtype == "sparks" then
-                    RenderSparksCell(cell, row, sd, noSnap, alpha, th)
-                elseif rtype == "cofferkeys" then
-                    RenderCofferKeysCell(cell, row, sd, noSnap, alpha, th)
-                elseif rtype == "misc" then
-                    RenderMiscCell(cell, row, sd, noSnap, alpha, th)
-                elseif rtype == "quest" then
-                    RenderQuestCell(cell, row, sd, noSnap, alpha, th)
-                elseif rtype == "checkitem" then
-                    RenderChecklistItemCell(cell, row, char, alpha, th)
-                elseif rtype == "upgcost" then
-                    RenderUpgradeCostCell(cell, row, snap, noSnap, alpha, th)
-                elseif rtype == "keystone" then
-                    RenderKeystoneCell(cell, row, snap, noSnap, alpha, th)
-                elseif rtype == "gv" then
-                    RenderGVCell(cell, row, snap, noSnap, alpha)
-                elseif rtype == "weapupg" then
-                    RenderWeapUpgCell(cell, row, sd, noSnap, alpha, th)
-                end
+                RenderRowCell(rtype, cell, row, sd, snap, noSnap, alpha, th, char, crestIDs, highestTuIdx)
 
                 cell._fs:SetJustifyH("CENTER")
 

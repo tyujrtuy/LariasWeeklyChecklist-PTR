@@ -7,7 +7,9 @@
 --   Wipe(t)             - empties table t in-place (nil-safe).
 --   IsNonEmptyText(txt) - true when string contains visible characters.
 --   FormatXY(cur, cap)  - formats progress as "cur/cap" or "cur".
---   ColorForXY(cur, cap)- returns red/yellow/green based on progress.
+--   ColorForXY(cur, cap)- returns red/yellow/green hex based on progress
+--                          (green at/above cap, yellow from 50%, else red).
+--   ColorForXYRGB(cur, cap) - same rule, returns r,g,b 0-1 floats instead.
 --   GetCurrencyName(id) - safe currency name lookup.
 --   GetCurrencyIcon(id) - safe currency icon lookup.
 --   GetItemName(id)     - safe item name lookup.
@@ -60,12 +62,39 @@ function AddonUtils.FormatXY(cur, cap)
     return tostring(cur)
 end
 
-function AddonUtils.ColorForXY(cur, cap)
+-- Shared currency progress rule: green once at/above cap, yellow from 50% up
+-- to (not including) cap, red below 50%. Used for every currency readout
+-- (crests, catalyst, sparks, coffer keys, misc) so they all read consistently.
+-- When no cap is known, falls back to a simple "have any / have none" split.
+local function CurrencyProgressState(cur, cap)
     cur = tonumber(cur) or 0
     cap = tonumber(cap) or 0
-    if cur <= 0 then return COLORS.red end
-    if cap > 0 and cur >= cap then return COLORS.green end
-    return COLORS.yellow
+    if cap > 0 then
+        if cur >= cap then return "green" end
+        if cur >= cap * 0.5 then return "yellow" end
+        return "red"
+    end
+    return (cur > 0) and "yellow" or "red"
+end
+
+function AddonUtils.ColorForXY(cur, cap)
+    return COLORS[CurrencyProgressState(cur, cap)]
+end
+
+-- Same rule as ColorForXY, but as 0-1 RGB floats for widgets that set
+-- SetTextColor directly instead of using a WoW color-escape string.
+local function HexPairToUnit(hex, pos)
+    return (tonumber(hex:sub(pos, pos + 1), 16) or 255) / 255
+end
+AddonUtils.COLOR_RGB = {}
+for name, hex in pairs(COLORS) do
+    -- hex format is "aarrggbb" (WoW color-escape byte order).
+    AddonUtils.COLOR_RGB[name] = { HexPairToUnit(hex, 3), HexPairToUnit(hex, 5), HexPairToUnit(hex, 7) }
+end
+
+function AddonUtils.ColorForXYRGB(cur, cap)
+    local rgb = AddonUtils.COLOR_RGB[CurrencyProgressState(cur, cap)]
+    return rgb[1], rgb[2], rgb[3]
 end
 
 function AddonUtils.GetCurrencyInfo(id)
