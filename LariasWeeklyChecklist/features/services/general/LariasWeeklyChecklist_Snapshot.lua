@@ -60,6 +60,25 @@ local function IsItemEmbellished(itemLink)
     return false
 end
 
+-- C_ChallengeMode.GetDungeonScoreRarityColor(dungeonScore) returns a
+-- ColorMixin (a table exposing plain .r/.g/.b fields) for the same rarity
+-- color Blizzard's own Mythic+ Rating UI uses for that score value. It's a
+-- pure function of the score number, not of "my own" live state, so it's
+-- safe to call here for any character's score, including a breakdown entry
+-- for a dungeon the snapshotted character hasn't run. Returns nil (render
+-- side falls back to the theme's default text color) if the API is missing
+-- or returns something unexpected.
+local function CaptureDungeonScoreColor(API, score)
+    if not (API.ChallengeMode and type(API.ChallengeMode.GetDungeonScoreRarityColor) == "function") then
+        return nil
+    end
+    local ok, color = pcall(API.ChallengeMode.GetDungeonScoreRarityColor, score)
+    if ok and type(color) == "table" and type(color.r) == "number" then
+        return { color.r, color.g, color.b }
+    end
+    return nil
+end
+
 local function WipeArray(t)
     if type(t) ~= "table" then return {} end
     for i = #t, 1, -1 do
@@ -356,18 +375,20 @@ function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
         snap.keystone.level = tonumber(ksLevel) or 0
         snap.keystone.name  = ksName or ""
 
-        -- Weekly/season run counts: number of Mythic+ dungeons completed since
-        -- the weekly reset, and since the season started. C_MythicPlus.GetRunHistory's
+        -- Weekly/season run counts: number of Mythic+ dungeons run since the
+        -- weekly reset, and since the season started. C_MythicPlus.GetRunHistory's
         -- real signature is (includePreviousWeeks, includeIncompleteRuns,
         -- currentSeasonOnly) -- there is no "thisSeason" field on each entry,
         -- only "thisWeek". So: ask for every week this season (includePreviousWeeks),
-        -- completed runs only (includeIncompleteRuns = false, so aborted/failed
-        -- keys don't inflate the count), scoped to the current season
-        -- (currentSeasonOnly). The season total is then just the number of runs
-        -- returned; the weekly total is the subset flagged thisWeek.
+        -- including abandoned/depleted attempts (includeIncompleteRuns = true --
+        -- matches how other addons (BigWigs, ExwindTools, atrocityEssentials)
+        -- count "runs this week", so this number lines up with what players see
+        -- elsewhere), scoped to the current season (currentSeasonOnly). The
+        -- season total is then just the number of runs returned; the weekly
+        -- total is the subset flagged thisWeek.
         local weeklyRuns, seasonRuns = 0, 0
         if API.MythicPlus and type(API.MythicPlus.GetRunHistory) == "function" then
-            local ok, runs = pcall(API.MythicPlus.GetRunHistory, true, false, true)
+            local ok, runs = pcall(API.MythicPlus.GetRunHistory, true, true, true)
             if ok and type(runs) == "table" then
                 for i = 1, #runs do
                     local run = runs[i]
@@ -382,6 +403,46 @@ function Addon:BuildTrackingSnapshot(snap, dirtyDomains)
         end
         snap.keystone.weeklyRuns = weeklyRuns
         snap.keystone.seasonRuns = seasonRuns
+
+        -- Overall Mythic+ Rating ("IO score"), Blizzard's own rarity color for
+        -- that score, and a per-dungeon breakdown (name, best level this
+        -- season, and that dungeon's own score/color) for the Alt Summary
+        -- tooltip. All three come from C_ChallengeMode and were verified
+        -- against warcraft.wiki.gg -- GetMapScoreInfo() takes no arguments
+        -- and already returns every dungeon in the current season's pool.
+        local ioScore = 0
+        if API.ChallengeMode and type(API.ChallengeMode.GetOverallDungeonScore) == "function" then
+            local ok, score = pcall(API.ChallengeMode.GetOverallDungeonScore)
+            if ok and type(score) == "number" then
+                ioScore = score
+            end
+        end
+        snap.keystone.ioScore = ioScore
+        snap.keystone.ioColor = CaptureDungeonScoreColor(API, ioScore)
+
+        local ioBreakdown = {}
+        if API.ChallengeMode and type(API.ChallengeMode.GetMapScoreInfo) == "function" then
+            local ok, scores = pcall(API.ChallengeMode.GetMapScoreInfo)
+            if ok and type(scores) == "table" then
+                for i = 1, #scores do
+                    local entry = scores[i]
+                    if entry and entry.mapChallengeModeID then
+                        local name
+                        if type(API.ChallengeMode.GetMapUIInfo) == "function" then
+                            name = API.ChallengeMode.GetMapUIInfo(entry.mapChallengeModeID)
+                        end
+                        local entryScore = tonumber(entry.dungeonScore) or 0
+                        ioBreakdown[#ioBreakdown + 1] = {
+                            name  = name or "",
+                            level = tonumber(entry.level) or 0,
+                            score = entryScore,
+                            color = CaptureDungeonScoreColor(API, entryScore),
+                        }
+                    end
+                end
+            end
+        end
+        snap.keystone.ioBreakdown = ioBreakdown
     end
     end
 

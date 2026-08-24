@@ -5,7 +5,7 @@ NOTE: This is the canonical enUS dataset; other locales must keep IDs identical
 so completion tracking stays consistent across locales.
 ]]
 
--- @sheet-version: 11
+-- @sheet-version: 12
 
 local LOCALE = "enUS"
 
@@ -17,7 +17,7 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "11"
+reg.sheet_version = "12"
 
 local DATASET = {
 
@@ -54,7 +54,7 @@ local DATASET = {
             { id = "c20c805a", text = "Do not pug the new \"world/lair boss\" on normal+ difficulties. You'll be doing this with your guild." },
             { id = "0cbc66bc", text = "Farm +10's for 3/6h 311 item level pieces, vault slots and all your various Crests." },
             { id = "c68ca026", text = "Full clear Normal/Heroic." },
-            { id = "34c5bada", text = "Before entering Mythic, upgrade three 3/6 hero track items to 6/6 - the items you pick will depend on whether you plan on bonus rolling an item in that slot. This should take 180/180 hero crests." },
+            { id = "57c283c4", text = "Before entering Mythic, upgrade three 3/6 hero track items to 6/6 - the items you pick will depend on whether you plan on bonus rolling an item in that slot. You should not upgrade slots that you are intending to bonus roll mythic items in. This should take 180/180 hero crests." },
             { id = "69319517", text = "If crafting a 2h weapon, you can go ahead and craft this at 5/6M for 80 Myth crests. However, this is a big commitment and Blizzard has announced a tuning patch for August 25th. If you might swap specs (boomie -> feral, fdk -> unholy etc) that require a different weapon type, you should hold off." },
             { id = "7bad141c", text = "If not crafting a 2h weapon, craft an item at 5/6M for 80 Myth crests." },
             { id = "f7ab089c", text = "As always, if you get a mythic item before the guide expects you to, upgrade it if you have the hero crests to save the myth crests" },

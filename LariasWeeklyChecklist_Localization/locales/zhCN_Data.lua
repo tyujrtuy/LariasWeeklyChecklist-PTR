@@ -5,7 +5,7 @@ NOTE: IDs are kept identical to the current enUS dataset so completion tracking
 stays consistent across locales.
 ]]
 
--- @sheet-version: 11
+-- @sheet-version: 12
 
 local LOCALE = "zhCN"
 
@@ -17,7 +17,7 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "11"
+reg.sheet_version = "12"
 
 local DATASET = {
 
@@ -54,7 +54,7 @@ local DATASET = {
             { id = "c20c805a", text = "不要在普通及以上难度与野队打新的“世界/巢穴首领”，这个要跟公会一起打。" },
             { id = "0cbc66bc", text = "刷 +10 层，获取3/6h 311装等装备、宝库槽位和各种纹章。" },
             { id = "c68ca026", text = "全通普通/英雄难度。" },
-            { id = "34c5bada", text = "进史诗前，将三件3/6英雄轨装备升级到6/6。选择哪件取决于你是否计划在该部位额外掷骰。这大约需要180/180英雄纹章。" },
+            { id = "57c283c4", text = "进史诗前，将三件3/6英雄轨装备升级到6/6。选择哪件取决于你是否计划在该部位额外掷骰。不要升级你打算在史诗难度额外掷骰的部位。这大约需要180/180英雄纹章。" },
             { id = "69319517", text = "如果要制造双手武器，可以直接用 80 神话纹章制造 5/6M。但这是很大投入，暴雪已宣布 8 月 25 日会有调整补丁。如果你可能切换专精（鸟德 -> 猫德、冰DK -> 邪DK 等）且需要不同武器类型，建议先等等。" },
             { id = "7bad141c", text = "如果不制造双手武器，就用 80 神话纹章制造一件 5/6M 装备。" },
             { id = "f7ab089c", text = "一如既往，如果在攻略预期之前拿到史诗装备，在有英雄纹章的情况下就升级它，以节省神话纹章" },

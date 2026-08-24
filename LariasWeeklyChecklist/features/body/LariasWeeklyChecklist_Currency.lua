@@ -269,8 +269,21 @@ local function GetCurrentCurrencySnapshotCap(rowType, currencyID)
 
     local id = tonumber(currencyID)
     if not (id and id > 0) then return 0, false end
-    local _, cap = FormatCurrencyProgressParts(id)
-    cap = tonumber(cap) or 0
+    -- Use the raw season/wallet cap here, not FormatCurrencyProgressParts's
+    -- cap (which inflates to math.max(seasonMax, earnedSoFar) so a single
+    -- character's own X/Y display never shows over 100%). This helper feeds
+    -- snapshot rendering for OTHER characters (Alt Summary, single-alt
+    -- tooltips) where the "current" character viewing the panel may have
+    -- earned bonus/uncapped crests beyond the season cap. Inflating the cap
+    -- there bled that character's overflow into every other alt's cap,
+    -- making a fully-capped alt read as under-cap (yellow instead of green).
+    local info = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo and C_CurrencyInfo.GetCurrencyInfo(id)
+    local cap = 0
+    if info then
+        local wkAmount  = tonumber(info.maxWeeklyQuantity) or 0
+        local walletCap = tonumber(info.maxQuantity) or 0
+        cap = (info.hasWeeklyLimit and wkAmount > 0 and wkAmount >= walletCap) and wkAmount or walletCap
+    end
     return cap, cap > 0 or IsConfiguredTrackedCurrencyID(id)
 end
 
@@ -1788,7 +1801,10 @@ function Addon:RenderCurrencySnapshotRow(row)
         local name  = GetCrestDisplayName(tracking, tierIdx, id, crestLabels)
         local lbl   = ColorWrap(GetCurrencyQualityColor(id), tostring(name))
         local cap, hasCurrentCap = GetCurrentCurrencySnapshotCap(SNAP_TYPES.CREST, id)
-        qty = ClampSnapshotAmountToCurrentCap(qty, cap, hasCurrentCap)
+        -- Do NOT clamp qty to cap: held crests can genuinely exceed the cap
+        -- via bonus/uncapped catch-up sources, and that overflow should
+        -- still show rather than being silently capped away (see the
+        -- matching note in Alt Summary's ExtractSnapData).
         local earned = ClampSnapshotAmountToCurrentCap(tonumber(row.earned) or qty, cap, hasCurrentCap)
         -- Text shows held (current) crests; color reflects this week's earn
         -- progress toward the cap, matching the live crest row.

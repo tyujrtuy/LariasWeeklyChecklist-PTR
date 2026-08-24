@@ -13,6 +13,15 @@ local MoveArrayEntry = AU.MoveArrayEntry
 local GetFrameCursorOffset = AU.GetFrameCursorOffset
 local CreateDragReorderController = AU.CreateDragReorderController
 
+-- IO Score row label: prefer Blizzard's own global string DUNGEON_SCORE (the
+-- same one the Challenges/Group Finder frame's DungeonScoreInfo widget uses),
+-- so this row's label always matches the player's client language
+-- automatically with no translation upkeep here. Blizzard's FrameXML globals
+-- load before addon files, so DUNGEON_SCORE is already defined by this point.
+-- Falls back to our own locale entry if Blizzard ever renames or drops that
+-- global string in a future patch.
+local IO_SCORE_LABEL = _G.DUNGEON_SCORE or L.ALT_SUMMARY_IO_SCORE or "Mythic+ Rating"
+
 -- ── Layout constants ──────────────────────────────────────────────────────────
 local PAD        = 8
 local RIGHT_PAD  = 2
@@ -599,6 +608,9 @@ local function BuildAltSummaryRowKey(row)
     end
     if row.type == "keystone" then
         return "keystone"
+    end
+    if row.type == "ioscore" then
+        return "ioscore"
     end
     if row.type == "weeklykeys" then
         return "weeklykeys"
@@ -1193,6 +1205,7 @@ local function BuildRowDefs(tracking, LAYOUT, chars)
     end
 
     addSec("stats", L.ALT_SUMMARY_SECTION_STATS or "Stats", nil)
+    addRow("ioscore", IO_SCORE_LABEL, {})
     addRow("weeklykeys", L.ALT_SUMMARY_KEYS_THIS_WEEK or "Keys This Week", {})
     addRow("seasonkeys", L.ALT_SUMMARY_KEYS_THIS_SEASON or "Keys This Season", {})
 
@@ -1328,7 +1341,12 @@ local function ExtractSnapData(snap, crestIDs, LAYOUT)
                 if crestIDs[ii] == rid then
                     local cap, hasCurrentCap = GetLiveSnapshotCap(getLiveCap, t, rid)
                     d.crestCaps[ii]     = cap
-                    d.crestQtys[ii]     = resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(r_.qty, cap, hasCurrentCap)
+                    -- qty (total held) is intentionally NOT clamped to cap: a
+                    -- character can genuinely hold more crests than the season
+                    -- cap via bonus/uncapped catch-up sources, and the cell
+                    -- should show that overflow (e.g. "130/100") rather than
+                    -- hide it. Only zero it out on an actual weekly reset.
+                    d.crestQtys[ii]     = resetCurrencies and 0 or (tonumber(r_.qty) or 0)
                     d.crestEarneds[ii]  = resetCurrencies and 0 or ClampSnapshotAmountToCurrentCap(r_.earned, cap, hasCurrentCap)
                     d.crestTradeups[ii] = r_.tradeup and (resetCurrencies and 0 or (tonumber(r_.tradeup) or 0)) or nil
                     break
@@ -1407,9 +1425,13 @@ local function RenderCrestCell(cell, row, sd, noSnap, alpha, _th, crestIDs, high
         SetPlaceholder(cell, _th, alpha * A_DIM)
         cell._tu:SetText("")
     else
-        -- Show crests acquired this week vs the weekly cap.
-        local baseStr = (cap > 0) and (earned .. "/" .. cap) or tostring(qty)
-        local shownVal = (cap > 0) and earned or qty
+        -- Show crests acquired toward the cap. When held crests exceed what
+        -- was earned toward the cap (bonus/uncapped crests on top of a
+        -- capped amount), show the larger held total on the left instead
+        -- (e.g. "130/100") so the bonus isn't hidden behind the cap value.
+        local numerator = (qty > earned) and qty or earned
+        local baseStr = (cap > 0) and (numerator .. "/" .. cap) or tostring(qty)
+        local shownVal = (cap > 0) and numerator or qty
         cell._fs:SetText(baseStr)
         local pr, pg, pb = CrestProgressColor(earned, cap)
         cell._fs:SetTextColor(pr, pg, pb, alpha * (shownVal > 0 and A_FULL or A_EMPTY))
@@ -1764,6 +1786,51 @@ local function RenderSeasonKeysCell(cell, row, snap, noSnap, alpha, th)
         "ALT_SUMMARY_KEYS_THIS_SEASON_FMT", "Keys this season: %d")
 end
 
+-- IO Score: the character's overall Mythic+ Rating, colored the same way
+-- Blizzard's own Mythic+ UI colors it (snap.keystone.ioColor, captured via
+-- C_ChallengeMode.GetDungeonScoreRarityColor in Snapshot.lua). On hover,
+-- breaks down every dungeon in the season pool with its best level and
+-- score this season, each colored the same way. Row/tooltip label text is
+-- IO_SCORE_LABEL, declared near the top of this file.
+local function RenderIOScoreCell(cell, row, snap, noSnap, alpha, th)
+    local ks = snap and snap.keystone
+    local score = ks and tonumber(ks.ioScore)
+    if noSnap or not ks or score == nil then
+        SetPlaceholder(cell, th, alpha * A_DIM)
+        return
+    end
+    local color = ks.ioColor
+    local cr, cg, cb = th.r, th.g, th.b
+    if color and color[1] then
+        cr, cg, cb = color[1], color[2], color[3]
+    end
+    cell._fs:SetText(tostring(score))
+    cell._fs:SetTextColor(cr, cg, cb, alpha * (score > 0 and A_FULL or A_EMPTY))
+    local _score, _cr, _cg, _cb, _breakdown = score, cr, cg, cb, ks.ioBreakdown
+    cell:SetScript("OnEnter", function(s_)
+        GameTooltip:SetOwner(s_, "ANCHOR_RIGHT")
+        GameTooltip:SetText(IO_SCORE_LABEL, _cr, _cg, _cb)
+        GameTooltip:AddLine((L.ALT_SUMMARY_IO_SCORE_FMT or "Rating: %d"):format(_score), 1, 1, 1)
+        if type(_breakdown) == "table" and #_breakdown > 0 then
+            GameTooltip:AddLine(" ")
+            for i = 1, #_breakdown do
+                local entry = _breakdown[i]
+                if entry and entry.name and entry.name ~= "" then
+                    local levelStr = entry.level > 0
+                        and (L.ALT_SUMMARY_KEYSTONE_LEVEL_SHORT_FMT or "+%d"):format(entry.level)
+                        or (L.ALT_SUMMARY_NONE or "\226\128\148")
+                    local er, eg, eb = 1, 1, 1
+                    if entry.color and entry.color[1] then
+                        er, eg, eb = entry.color[1], entry.color[2], entry.color[3]
+                    end
+                    GameTooltip:AddDoubleLine(entry.name, levelStr, 1, 1, 1, er, eg, eb)
+                end
+            end
+        end
+        GameTooltip:Show()
+    end)
+end
+
 local function FormatAverageItemLevel(ilvl)
     ilvl = tonumber(ilvl) or 0
     if ilvl <= 0 then return nil end
@@ -2010,6 +2077,8 @@ local function RenderRowCell(rtype, cell, row, sd, snap, noSnap, alpha, th, char
         RenderKeystoneCell(cell, row, snap, noSnap, alpha, th)
     elseif rtype == "gv" then
         RenderGVCell(cell, row, snap, noSnap, alpha)
+    elseif rtype == "ioscore" then
+        RenderIOScoreCell(cell, row, snap, noSnap, alpha, th)
     elseif rtype == "weeklykeys" then
         RenderWeeklyKeysCell(cell, row, snap, noSnap, alpha, th)
     elseif rtype == "seasonkeys" then
