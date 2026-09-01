@@ -22,24 +22,6 @@ reg.sheet_version = "13"
 local DATASET = {
 
     {
-        id = "21fa8e1b",
-        title = "Week 0 - Aug 11 - Pre-Season",
-        items = {
-            { id = "1fb55f58", text = "You can freely spend any champion and below crests at any time." },
-            { id = "e3f0c2bd", text = "Complete the new zone intro campaign." },
-            { id = "7508a529", text = "Complete a world tour of M0's for 292 ilvl gear" },
-            { id = "e2863827", text = "Complete 2x Hard Prey for 279 ilvl gear if needed" },
-            { id = "66e39766", text = "Complete the new Lair raid boss on story mode difficulty for fun and LFR gear." },
-            { id = "8c0621a3", text = "Complete 2x weekly spark quests - you'll be able to get 2 more next week" },
-            { id = "690c60ea", text = "Unlock a Season 2 Crucible of Erratic Energies that can be upgraded to 295 by picking up a quest at the voidstorm upgrade altar. Sim it!" },
-            { id = "c9797aa9", text = "Complete Vaults of Atal'Utek: A Toxic Tour for a Season 2 delve map. Do not use until you've unlocked T8 delves" },
-            { id = "bbfd5a28", text = "Push delves until you unlock t11. While doing this, once you've reached a t8 delve, do the t8 delve with the map buff to get a 1/6 hero item. It should be the only source of hero items this week." },
-            { id = "15ba7791", text = "(OPTIONAL) Incredibly degenerate: If you want to try for the HOF ?? Delve boss next week, be degenerate and level Alleria to 80. This is the dumbest thing you could possibly do this weekend so of course several of my raiders have done it. You do this by entering the Ring of Glory Delve on T11 with the Dunduns Favor curio equipped which lets you automatically pick up curios by running over them. You proceed to run over all the curious, leave the delve, and repeat for 6+ hours." },
-            { id = "2ee86b71", text = "(OPTIONAL) A less degenerate thing you could do is Check Guide for a link to Neryssa's Corrosive Codex information and pick two of these powers to get. They work in the ?? delve boss lair." },
-            { id = "0e77abc6", text = "If you are not doing raid splits next week, you should fill out your delve vault with tier 6 Delves to try to get tier pieces. If you are doing splits next week, just make sure that you have 3 total slots filled so you can get a socket." },
-        },
-    },
-    {
         id = "a932c06c",
         title = "Week 1 - Aug 18 - Season Starts",
         items = {
