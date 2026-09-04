@@ -5,7 +5,7 @@ NOTE: IDs are kept identical to the current enUS dataset so completion tracking
 stays consistent across locales.
 ]]
 
--- @sheet-version: 13
+-- @sheet-version: 14
 
 local LOCALE = "zhCN"
 
@@ -17,7 +17,7 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "13"
+reg.sheet_version = "14"
 
 local DATASET = {
 
@@ -45,8 +45,8 @@ local DATASET = {
         },
     },
     {
-        id = "23b49805",
-        title = "第2周 - 8月27日 - 本周",
+        id = "4c73f265",
+        title = "第2周 - 8月27日",
         items = {
             { id = "2cb1a5fb", text = "重要：请查看攻略，获取额外掷骰位置的相关资源链接。" },
             { id = "d800e84b", text = "打开你的宝库——该选什么请查看攻略。" },
@@ -62,10 +62,12 @@ local DATASET = {
         },
     },
     {
-        id = "212586b9",
-        title = "第3周 - 9月3日",
+        id = "89ce7292",
+        title = "第3周 - 9月3日 - 本周",
         items = {
             { id = "d800e84b", text = "打开你的宝库——该选什么请查看攻略。" },
+            { id = "82c130d3", text = "如果还缺套装，打随机团队获取套装部件。" },
+            { id = "d70a8aae", text = "如果还缺套装，完成地下堡周常任务有机会获得套装部件" },
             { id = "70348198", text = "完成每周火花任务" },
             { id = "a032b050", text = "如需纹章可以刷 +12。如果其他来源能拿到纹章，本赛季不必狂刷大秘境。" },
             { id = "be0f768b", text = "英雄：将一件3/6h装备升级到6/6h，消耗60英雄纹章；将1件3/6h装备升到4/6h，消耗20英雄纹章。用20英雄纹章为一件需要先升到2/6的史诗1/6装备升级。" },

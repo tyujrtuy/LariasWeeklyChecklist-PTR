@@ -5,7 +5,7 @@ NOTE: This is the canonical enUS dataset; other locales must keep IDs identical
 so completion tracking stays consistent across locales.
 ]]
 
--- @sheet-version: 13
+-- @sheet-version: 14
 
 local LOCALE = "enUS"
 
@@ -17,7 +17,7 @@ if type(reg) ~= "table" then
     _G[LOCALE_REGISTRY_KEY] = reg
 end
 if type(reg.data) ~= "table" then reg.data = {} end
-reg.sheet_version = "13"
+reg.sheet_version = "14"
 
 local DATASET = {
 
@@ -45,8 +45,8 @@ local DATASET = {
         },
     },
     {
-        id = "23b49805",
-        title = "Week 2 - Aug 25 - Current week",
+        id = "4c73f265",
+        title = "Week 2 - Aug 25",
         items = {
             { id = "2cb1a5fb", text = "IMPORTANT: Check Guide for links to resources for where to bonus roll." },
             { id = "d800e84b", text = "Open your vault - Check Guide for what to take." },
@@ -62,10 +62,12 @@ local DATASET = {
         },
     },
     {
-        id = "212586b9",
-        title = "Week 3 - Sep 1",
+        id = "89ce7292",
+        title = "Week 3 - Sep 1 - Current week",
         items = {
             { id = "d800e84b", text = "Open your vault - Check Guide for what to take." },
+            { id = "82c130d3", text = "Do LFR for tier pieces if you still need tier." },
+            { id = "d70a8aae", text = "Do the delve weekly for a chance at tier if you still need tier" },
             { id = "70348198", text = "Complete weekly spark quest" },
             { id = "a032b050", text = "Farm +12's if you need to for crests. You don't have to spam M+ this season if you can get your crests from other sources." },
             { id = "be0f768b", text = "Heroic: Upgrade a 3/6h item to 6/6h for 60 Heroic Crests. Upgrade 1 3/6h items to 4/6h for 20 Heroic Crests. Use 20 Hero crests for a myth 1/6 item that you need to upgrade to 2/6 first." },
