@@ -1,7 +1,7 @@
-﻿## Interface: 110205,120000
+﻿## Interface: 120100,120105,11509,50504,20506,16001
 ## LoadOnDemand: 1
 ## Title: Lib: Window-1.1
-## Version: 1.1.24
+## Version: 1.1.25
 ## Notes: A library that handles the basics of "window" style frames
 ## Author: Mikk
 ## eMail: dpsgnome@mail.com
